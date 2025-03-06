@@ -32,15 +32,18 @@ The **Threat Intelligence Platform (MVP)** is a minimal viable product designed 
    ```sh
    pip install -r requirements.txt
    ```
-4. Set up PostgreSQL database:
+4. Configure environment variables:
+   - Update the `.env` file based on `.env.example` before running the application.
+
+5. Set up PostgreSQL database:
    ```sh
    docker run --name postgres -e POSTGRES_USER=admin -e POSTGRES_PASSWORD=admin -e POSTGRES_DB=threats_db -p 5432:5432 -d postgres
    ```
-5. Deploy using Docker:
+6. Deploy using Docker:
    ```sh
    docker-compose up -d
    ```
-6. Deploy to the cloud using Terraform:
+7. Deploy to the cloud using Terraform:
    ```sh
    cd infrastructure
    terraform init
@@ -60,5 +63,5 @@ This project is licensed under the MIT License. See `LICENSE` for details.
 
 ---
 
-🚀 **Get started with basic cyber threat intelligence!**
+🚀 **Get started with cyber threat intelligence!**
 
