@@ -1,0 +1,17 @@
+# .gitignore
+.env
+__pycache__/
+*.pyc
+.DS_Store
+
+# Ignore virtual environment
+venv/
+
+# Ignore Docker and Terraform related files
+*.tfstate
+*.tfstate.backup
+.terraform/
+
+# Ignore logs and temp files
+*.log
+*.tmp
