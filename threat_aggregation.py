@@ -7,17 +7,18 @@ load_dotenv()
 VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY")
 SHODAN_API_KEY = os.getenv("SHODAN_API_KEY")
 ALIENVAULT_API_KEY = os.getenv("ALIENVAULT_API_KEY")
+ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY")
 
 class ThreatAggregator:
     """
-    Fetches threat intelligence from VirusTotal, Shodan, and AlienVault OTX.
+    Fetches threat intelligence from VirusTotal, Shodan, AlienVault OTX, and AbuseIPDB.
     """
 
     @staticmethod
-    def fetch_data(url: str, headers: dict = None):
+    def fetch_data(url: str, headers: dict = None, params: dict = None):
         """Helper method to make an API request and handle errors."""
         try:
-            response = requests.get(url, headers=headers, timeout=10)
+            response = requests.get(url, headers=headers, params=params, timeout=10)
             response.raise_for_status()  # Raise an error for non-200 responses
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -53,6 +54,23 @@ class ThreatAggregator:
         return ThreatAggregator.fetch_data(url, headers)
 
     @staticmethod
+    def check_ip_abuseipdb(ip: str):
+        """Query AbuseIPDB for IP reports."""
+        if not ABUSEIPDB_API_KEY:
+            return {"error": "Missing AbuseIPDB API key"}
+
+        url = "https://api.abuseipdb.com/api/v2/check"
+        headers = {
+            "Key": ABUSEIPDB_API_KEY,
+            "Accept": "application/json"
+        }
+        params = {
+            "ipAddress": ip,
+            "maxAgeInDays": 90
+        }
+        return ThreatAggregator.fetch_data(url, headers, params)
+
+    @staticmethod
     def aggregate_threat_data(ip: str):
         """Fetch threat intelligence data from multiple sources."""
         return {
@@ -60,6 +78,7 @@ class ThreatAggregator:
             "virustotal": ThreatAggregator.check_ip_virustotal(ip),
             "shodan": ThreatAggregator.check_ip_shodan(ip),
             "alienvault": ThreatAggregator.check_ip_alienvault(ip),
+            "abuseipdb": ThreatAggregator.check_ip_abuseipdb(ip),
         }
 
 # Example usage
