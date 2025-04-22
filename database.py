@@ -2,13 +2,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+# Create the database in the current directory
+DATABASE_URL = "sqlite:///threat_intelligence.db"
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:admin@localhost/threats_db")
-
-engine = create_engine(DATABASE_URL)
+# Create engine (echo=True shows SQL commands for debugging)
+engine = create_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

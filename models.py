@@ -2,8 +2,24 @@ from sqlalchemy import Column, Integer, String, DateTime, JSON, Float, ForeignKe
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
+import json
+from sqlalchemy.orm import Session
+from typing import Dict, Optional
+from database import get_db
 
 Base = declarative_base()
+
+# SQLite doesn't have a JSON type, so we'll create a custom type
+class JSONString(String):
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            return json.dumps(value)
+        return None
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            return json.loads(value)
+        return None
 
 class IPAddress(Base):
     """Main table for storing IP addresses and their overall threat scores"""
@@ -12,7 +28,7 @@ class IPAddress(Base):
     id = Column(Integer, primary_key=True)
     ip_address = Column(String, unique=True, nullable=False, index=True)
     first_seen = Column(DateTime, default=datetime.utcnow)
-    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_updated = Column(DateTime, default=datetime.utcnow)
     overall_threat_score = Column(Float, default=0.0)
     is_malicious = Column(Boolean, default=False)
     
@@ -32,8 +48,8 @@ class VirusTotalData(Base):
     malicious_count = Column(Integer)
     suspicious_count = Column(Integer)
     harmless_count = Column(Integer)
-    raw_data = Column(JSON)  # Store complete API response
-    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    raw_data = Column(JSONString)  # Store complete API response
+    last_updated = Column(DateTime, default=datetime.utcnow)
     
     # Relationship
     ip = relationship("IPAddress", back_populates="virustotal_data")
@@ -45,12 +61,12 @@ class ShodanData(Base):
     id = Column(Integer, primary_key=True)
     ip_address_id = Column(Integer, ForeignKey('ip_addresses.id'), nullable=False)
     last_update = Column(DateTime)
-    ports = Column(JSON)  # Store open ports
-    vulns = Column(JSON)  # Store vulnerabilities
-    tags = Column(JSON)  # Store tags
-    hostnames = Column(JSON)  # Store hostnames
-    raw_data = Column(JSON)  # Store complete API response
-    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    ports = Column(JSONString)  # Store open ports
+    vulns = Column(JSONString)  # Store vulnerabilities
+    tags = Column(JSONString)  # Store tags
+    hostnames = Column(JSONString)  # Store hostnames
+    raw_data = Column(JSONString)  # Store complete API response
+    last_updated = Column(DateTime, default=datetime.utcnow)
     
     # Relationship
     ip = relationship("IPAddress", back_populates="shodan_data")
@@ -63,9 +79,9 @@ class AlienVaultData(Base):
     ip_address_id = Column(Integer, ForeignKey('ip_addresses.id'), nullable=False)
     pulse_count = Column(Integer)
     reputation = Column(Integer)
-    activity_types = Column(JSON)  # Store types of malicious activities
-    raw_data = Column(JSON)  # Store complete API response
-    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    activity_types = Column(JSONString)  # Store types of malicious activities
+    raw_data = Column(JSONString)  # Store complete API response
+    last_updated = Column(DateTime, default=datetime.utcnow)
     
     # Relationship
     ip = relationship("IPAddress", back_populates="alienvault_data")
@@ -79,8 +95,8 @@ class AbuseIPDBData(Base):
     abuse_confidence_score = Column(Integer)
     total_reports = Column(Integer)
     last_reported_at = Column(DateTime)
-    raw_data = Column(JSON)  # Store complete API response
-    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    raw_data = Column(JSONString)  # Store complete API response
+    last_updated = Column(DateTime, default=datetime.utcnow)
     
     # Relationship
     ip = relationship("IPAddress", back_populates="abuseipdb_data")
@@ -95,4 +111,4 @@ class ScanHistory(Base):
     scan_type = Column(String)  # Type of scan (full, partial, etc.)
     status = Column(String)  # Success, failed, partial
     error_message = Column(String, nullable=True)
-    sources_checked = Column(JSON)  # List of sources checked in this scan 
+    sources_checked = Column(JSONString)  # List of sources checked in this scan 
