@@ -47,11 +47,16 @@ class VirusTotalData(Base):
     malicious_count = Column(Integer)
     suspicious_count = Column(Integer)
     harmless_count = Column(Integer)
-    raw_data = Column(JSONString)  # Store complete API response
+    raw_data = Column(String)  # Changed from JSONString to String
     last_updated = Column(DateTime, default=datetime.utcnow)
     
     # Relationship
     ip = relationship("IPAddress", back_populates="virustotal_data")
+
+    def get_raw_data(self) -> Dict:
+        """Get raw data as Python dictionary"""
+        import json
+        return json.loads(self.raw_data) if self.raw_data else {}
 
 class ShodanData(Base):
     """Store Shodan specific data"""

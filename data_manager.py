@@ -98,7 +98,8 @@ class ThreatDataManager:
             vt_record.suspicious_count = last_analysis_stats.get('suspicious', 0)
             vt_record.harmless_count = last_analysis_stats.get('harmless', 0)
             vt_record.last_analysis_date = datetime.fromtimestamp(attrs.get('last_analysis_date', 0))
-            vt_record.raw_data = vt_data
+            # Convert dictionary to JSON string before storing
+            vt_record.raw_data = json.dumps(vt_data)
 
         db.flush()
         return vt_record
