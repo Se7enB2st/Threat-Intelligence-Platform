@@ -36,7 +36,6 @@ class IPAddress(Base):
     virustotal_data = relationship("VirusTotalData", back_populates="ip", uselist=False)
     shodan_data = relationship("ShodanData", back_populates="ip", uselist=False)
     alienvault_data = relationship("AlienVaultData", back_populates="ip", uselist=False)
-    abuseipdb_data = relationship("AbuseIPDBData", back_populates="ip", uselist=False)
 
 class VirusTotalData(Base):
     """Store VirusTotal specific data"""
@@ -85,21 +84,6 @@ class AlienVaultData(Base):
     
     # Relationship
     ip = relationship("IPAddress", back_populates="alienvault_data")
-
-class AbuseIPDBData(Base):
-    """Store AbuseIPDB specific data"""
-    __tablename__ = 'abuseipdb_data'
-
-    id = Column(Integer, primary_key=True)
-    ip_address_id = Column(Integer, ForeignKey('ip_addresses.id'), nullable=False)
-    abuse_confidence_score = Column(Integer)
-    total_reports = Column(Integer)
-    last_reported_at = Column(DateTime)
-    raw_data = Column(JSONString)  # Store complete API response
-    last_updated = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationship
-    ip = relationship("IPAddress", back_populates="abuseipdb_data")
 
 class ScanHistory(Base):
     """Track scanning history and results"""

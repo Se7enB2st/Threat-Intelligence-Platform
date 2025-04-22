@@ -1,17 +1,18 @@
 import os
 import requests
 from dotenv import load_dotenv
+from database import get_db
+from data_manager import ThreatDataManager
 
 # Load API keys from .env file
 load_dotenv()
 VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY")
 SHODAN_API_KEY = os.getenv("SHODAN_API_KEY")
 ALIENVAULT_API_KEY = os.getenv("ALIENVAULT_API_KEY")
-ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY")
 
 class ThreatAggregator:
     """
-    Fetches threat intelligence from VirusTotal, Shodan, AlienVault OTX, and AbuseIPDB.
+    Fetches threat intelligence from VirusTotal, Shodan, and AlienVault OTX.
     """
 
     @staticmethod
@@ -54,35 +55,24 @@ class ThreatAggregator:
         return ThreatAggregator.fetch_data(url, headers)
 
     @staticmethod
-    def check_ip_abuseipdb(ip: str):
-        """Query AbuseIPDB for IP reports."""
-        if not ABUSEIPDB_API_KEY:
-            return {"error": "Missing AbuseIPDB API key"}
-
-        url = "https://api.abuseipdb.com/api/v2/check"
-        headers = {
-            "Key": ABUSEIPDB_API_KEY,
-            "Accept": "application/json"
-        }
-        params = {
-            "ipAddress": ip,
-            "maxAgeInDays": 90
-        }
-        return ThreatAggregator.fetch_data(url, headers, params)
-
-    @staticmethod
     def aggregate_threat_data(ip: str):
         """Fetch threat intelligence data from multiple sources."""
         return {
             "ip": ip,
             "virustotal": ThreatAggregator.check_ip_virustotal(ip),
             "shodan": ThreatAggregator.check_ip_shodan(ip),
-            "alienvault": ThreatAggregator.check_ip_alienvault(ip),
-            "abuseipdb": ThreatAggregator.check_ip_abuseipdb(ip),
+            "alienvault": ThreatAggregator.check_ip_alienvault(ip)
         }
 
 # Example usage
 if __name__ == "__main__":
     test_ip = "8.8.8.8"  # Replace with an actual IP to test
     data = ThreatAggregator.aggregate_threat_data(test_ip)
-    print(data)
+    
+    # Save to database
+    db = next(get_db())
+    try:
+        ip_record = ThreatDataManager.save_threat_data(db, test_ip, data)
+        print(f"Data saved successfully. Threat score: {ip_record.overall_threat_score}")
+    finally:
+        db.close()

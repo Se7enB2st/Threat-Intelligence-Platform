@@ -55,14 +55,6 @@ class ThreatDataManager:
             else:
                 av_result = ThreatDataManager._save_alienvault_data(db, ip_record.id, av_data)
 
-        # Update AbuseIPDB Data
-        if "abuseipdb" in threat_data:
-            abuse_data = threat_data["abuseipdb"]
-            if not isinstance(abuse_data, dict) or "error" in abuse_data:
-                abuse_result = None
-            else:
-                abuse_result = ThreatDataManager._save_abuseipdb_data(db, ip_record.id, abuse_data)
-
         # Calculate and update overall threat score
         ThreatDataManager._update_threat_score(db, ip_record)
 
@@ -74,8 +66,7 @@ class ThreatDataManager:
             sources_checked={
                 "virustotal": vt_result is not None,
                 "shodan": shodan_result is not None,
-                "alienvault": av_result is not None,
-                "abuseipdb": abuse_result is not None
+                "alienvault": av_result is not None
             }
         )
         db.add(scan_history)
@@ -150,27 +141,6 @@ class ThreatDataManager:
         return av_record
 
     @staticmethod
-    def _save_abuseipdb_data(db: Session, ip_id: int, abuse_data: Dict) -> Optional[models.AbuseIPDBData]:
-        """Save AbuseIPDB data for an IP"""
-        abuse_record = db.query(models.AbuseIPDBData).filter(
-            models.AbuseIPDBData.ip_address_id == ip_id
-        ).first()
-
-        if not abuse_record:
-            abuse_record = models.AbuseIPDBData(ip_address_id=ip_id)
-            db.add(abuse_record)
-
-        if 'data' in abuse_data:
-            data = abuse_data['data']
-            abuse_record.abuse_confidence_score = data.get('abuseConfidenceScore', 0)
-            abuse_record.total_reports = data.get('totalReports', 0)
-            abuse_record.last_reported_at = datetime.fromisoformat(data.get('lastReportedAt', '').replace('Z', '+00:00')) if data.get('lastReportedAt') else None
-            abuse_record.raw_data = abuse_data
-
-        db.flush()
-        return abuse_record
-
-    @staticmethod
     def _update_threat_score(db: Session, ip_record: models.IPAddress):
         """Calculate and update the overall threat score for an IP"""
         score = 0.0
@@ -186,11 +156,6 @@ class ThreatDataManager:
         # AlienVault score (0-100)
         if ip_record.alienvault_data and ip_record.alienvault_data.reputation is not None:
             score += min(100, abs(ip_record.alienvault_data.reputation))
-            count += 1
-
-        # AbuseIPDB score (0-100)
-        if ip_record.abuseipdb_data and ip_record.abuseipdb_data.abuse_confidence_score is not None:
-            score += ip_record.abuseipdb_data.abuse_confidence_score
             count += 1
 
         # Shodan vulnerabilities score (0-100)
