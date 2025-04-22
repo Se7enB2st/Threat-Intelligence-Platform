@@ -158,7 +158,7 @@ class ThreatAnalyzer:
                 change = ((day.avg_score - prev_score) / prev_score) * 100 if prev_score > 0 else 0
             
             trend_data.append({
-                "date": day.date.isoformat(),
+                "date": day.date,
                 "average_threat_score": round(day.avg_score, 2),
                 "ips_analyzed": day.ip_count,
                 "percentage_change": round(change, 2) if change is not None else None

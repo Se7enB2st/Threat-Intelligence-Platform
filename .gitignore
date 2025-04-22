@@ -15,3 +15,11 @@ venv/
 # Ignore logs and temp files
 *.log
 *.tmp
+
+# ignore visualizations
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff

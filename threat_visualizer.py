@@ -7,14 +7,14 @@ from typing import Dict, List
 from threat_analyzer import ThreatAnalyzer
 from database import get_db
 import os
+import numpy as np
 
 class ThreatVisualizer:
     """Creates visualizations for threat intelligence data"""
 
     def __init__(self):
-        # Set style for all plots
-        plt.style.use('seaborn')
-        sns.set_palette("husl")
+        # Use a built-in style instead of seaborn
+        plt.style.use('ggplot')  # Using ggplot style which is similar to seaborn
         
         # Create output directory if it doesn't exist
         self.output_dir = "threat_visualizations"
@@ -33,6 +33,7 @@ class ThreatVisualizer:
         Create a line plot showing threat score trends over time
         """
         df = pd.DataFrame(trend_data['trend_data'])
+        # Convert string dates to datetime objects for plotting
         df['date'] = pd.to_datetime(df['date'])
 
         plt.figure(figsize=(12, 6))
@@ -118,32 +119,54 @@ class ThreatVisualizer:
         """
         Create visualizations for threat patterns
         """
+        # Check if we have any activity patterns
+        if not pattern_data.get('activity_patterns') or len(pattern_data['activity_patterns']) == 0:
+            # Create an empty plot with a message
+            plt.figure(figsize=(12, 6))
+            plt.text(0.5, 0.5, 'No threat pattern data available', 
+                    horizontalalignment='center',
+                    verticalalignment='center',
+                    transform=plt.gca().transAxes)
+            plt.title('Threat Patterns')
+            return self.save_plot('threat_patterns')
+
         # Convert to DataFrame
         df = pd.DataFrame(pattern_data['activity_patterns'])
         
+        # Check if required columns exist
+        if 'activity' not in df.columns or 'count' not in df.columns:
+            plt.figure(figsize=(12, 6))
+            plt.text(0.5, 0.5, 'Invalid threat pattern data format', 
+                    horizontalalignment='center',
+                    verticalalignment='center',
+                    transform=plt.gca().transAxes)
+            plt.title('Threat Patterns')
+            return self.save_plot('threat_patterns')
+
         # Plot top activities by count
         plt.figure(figsize=(12, 6))
-        top_activities = df.nlargest(10, 'count')
+        
+        # Get top activities (up to 10)
+        n_activities = min(10, len(df))
+        top_activities = df.nlargest(n_activities, 'count')
         
         # Create color gradient based on average threat score
-        colors = sns.color_palette("YlOrRd", n_colors=len(top_activities))
+        colors = plt.cm.YlOrRd(np.linspace(0.2, 0.8, len(top_activities)))
         
         # Sort by count and plot
         bars = plt.bar(range(len(top_activities)), top_activities['count'])
         
-        # Color bars by average threat score
+        # Color bars
         for i, bar in enumerate(bars):
             bar.set_color(colors[i])
             
-        plt.xticks(range(len(top_activities)), top_activities['activity'], rotation=45, ha='right')
+        plt.xticks(range(len(top_activities)), 
+                  top_activities['activity'], 
+                  rotation=45, 
+                  ha='right')
         plt.xlabel('Activity Type')
         plt.ylabel('Number of Occurrences')
-        plt.title('Top 10 Threat Activities')
-        
-        # Add colorbar legend
-        sm = plt.cm.ScalarMappable(cmap="YlOrRd")
-        sm.set_array([])
-        plt.colorbar(sm, label='Average Threat Score')
+        plt.title('Threat Activities')
 
         return self.save_plot('threat_patterns')
 
@@ -152,27 +175,38 @@ class ThreatVisualizer:
         Generate a comprehensive visual report of all threat analyses
         """
         db = next(get_db())
+        plots = {}
+        
         try:
-            # Create all visualizations
-            trend_data = ThreatAnalyzer.analyze_threat_trends(db)
-            correlation_data = ThreatAnalyzer.analyze_source_correlation(db)
-            port_data = ThreatAnalyzer.analyze_port_exposure(db)
-            pattern_data = ThreatAnalyzer.analyze_threat_patterns(db)
+            # Create all visualizations with error handling
+            try:
+                trend_data = ThreatAnalyzer.analyze_threat_trends(db)
+                plots['threat_trends'] = self.plot_threat_trends(trend_data)
+            except Exception as e:
+                print(f"Error generating threat trends plot: {e}")
 
-            # Generate plots
-            trend_plot = self.plot_threat_trends(trend_data)
-            correlation_plot = self.plot_source_correlation(correlation_data)
-            port_plot = self.plot_port_exposure(port_data)
-            pattern_plot = self.plot_threat_patterns(pattern_data)
+            try:
+                correlation_data = ThreatAnalyzer.analyze_source_correlation(db)
+                plots['source_correlation'] = self.plot_source_correlation(correlation_data)
+            except Exception as e:
+                print(f"Error generating source correlation plot: {e}")
+
+            try:
+                port_data = ThreatAnalyzer.analyze_port_exposure(db)
+                plots['port_exposure'] = self.plot_port_exposure(port_data)
+            except Exception as e:
+                print(f"Error generating port exposure plot: {e}")
+
+            try:
+                pattern_data = ThreatAnalyzer.analyze_threat_patterns(db)
+                plots['threat_patterns'] = self.plot_threat_patterns(pattern_data)
+            except Exception as e:
+                print(f"Error generating threat patterns plot: {e}")
 
             return {
-                "plots": {
-                    "threat_trends": trend_plot,
-                    "source_correlation": correlation_plot,
-                    "port_exposure": port_plot,
-                    "threat_patterns": pattern_plot
-                },
-                "timestamp": datetime.now().isoformat()
+                "plots": plots,
+                "timestamp": datetime.now().isoformat(),
+                "plots_generated": len(plots)
             }
 
         finally:
