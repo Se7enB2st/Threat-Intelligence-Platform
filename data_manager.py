@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Dict, Optional
 import models
 from database import get_db
+import json  # Add this import at the top of the file
 
 class ThreatDataManager:
     """Manages all database operations for threat intelligence data"""
@@ -58,16 +59,18 @@ class ThreatDataManager:
         # Calculate and update overall threat score
         ThreatDataManager._update_threat_score(db, ip_record)
 
-        # Create scan history entry
+        # Create scan history entry with JSON string for sources_checked
         scan_history = models.ScanHistory(
             ip_address_id=ip_record.id,
+            scan_date=datetime.utcnow(),
             scan_type="full",
             status="success",
-            sources_checked={
+            error_message=None,
+            sources_checked=json.dumps({  # Convert dict to JSON string
                 "virustotal": vt_result is not None,
                 "shodan": shodan_result is not None,
                 "alienvault": av_result is not None
-            }
+            })
         )
         db.add(scan_history)
 
@@ -111,11 +114,12 @@ class ThreatDataManager:
             shodan_record = models.ShodanData(ip_address_id=ip_id)
             db.add(shodan_record)
 
-        shodan_record.ports = shodan_data.get('ports', [])
-        shodan_record.vulns = shodan_data.get('vulns', [])
-        shodan_record.tags = shodan_data.get('tags', [])
-        shodan_record.hostnames = shodan_data.get('hostnames', [])
-        shodan_record.raw_data = shodan_data
+        # Convert Python lists and dicts to JSON strings before storing
+        shodan_record.ports = json.dumps(shodan_data.get('ports', []))
+        shodan_record.vulns = json.dumps(shodan_data.get('vulns', []))
+        shodan_record.tags = json.dumps(shodan_data.get('tags', []))
+        shodan_record.hostnames = json.dumps(shodan_data.get('hostnames', []))
+        shodan_record.raw_data = json.dumps(shodan_data)
         shodan_record.last_update = datetime.utcnow()
 
         db.flush()

@@ -60,15 +60,40 @@ class ShodanData(Base):
     id = Column(Integer, primary_key=True)
     ip_address_id = Column(Integer, ForeignKey('ip_addresses.id'), nullable=False)
     last_update = Column(DateTime)
-    ports = Column(JSONString)  # Store open ports
-    vulns = Column(JSONString)  # Store vulnerabilities
-    tags = Column(JSONString)  # Store tags
-    hostnames = Column(JSONString)  # Store hostnames
-    raw_data = Column(JSONString)  # Store complete API response
+    ports = Column(String)  # Changed from JSONString to String
+    vulns = Column(String)  # Changed from JSONString to String
+    tags = Column(String)  # Changed from JSONString to String
+    hostnames = Column(String)  # Changed from JSONString to String
+    raw_data = Column(String)  # Changed from JSONString to String
     last_updated = Column(DateTime, default=datetime.utcnow)
     
     # Relationship
     ip = relationship("IPAddress", back_populates="shodan_data")
+
+    def get_ports(self):
+        """Get ports as Python list"""
+        import json
+        return json.loads(self.ports) if self.ports else []
+
+    def get_vulns(self):
+        """Get vulnerabilities as Python list"""
+        import json
+        return json.loads(self.vulns) if self.vulns else []
+
+    def get_tags(self):
+        """Get tags as Python list"""
+        import json
+        return json.loads(self.tags) if self.tags else []
+
+    def get_hostnames(self):
+        """Get hostnames as Python list"""
+        import json
+        return json.loads(self.hostnames) if self.hostnames else []
+
+    def get_raw_data(self):
+        """Get raw data as Python dict"""
+        import json
+        return json.loads(self.raw_data) if self.raw_data else {}
 
 class AlienVaultData(Base):
     """Store AlienVault OTX specific data"""
@@ -95,4 +120,9 @@ class ScanHistory(Base):
     scan_type = Column(String)  # Type of scan (full, partial, etc.)
     status = Column(String)  # Success, failed, partial
     error_message = Column(String, nullable=True)
-    sources_checked = Column(JSONString)  # List of sources checked in this scan 
+    sources_checked = Column(String)  # Store JSON string of sources checked
+
+    def get_sources_checked(self):
+        """Get sources checked as Python dict"""
+        import json
+        return json.loads(self.sources_checked) if self.sources_checked else {} 
