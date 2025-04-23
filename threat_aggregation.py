@@ -3,12 +3,29 @@ import requests
 from dotenv import load_dotenv
 from database import get_db
 from data_manager import ThreatDataManager
+import time
 
 # Load API keys from .env file
 load_dotenv()
 VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY")
 SHODAN_API_KEY = os.getenv("SHODAN_API_KEY")
 ALIENVAULT_API_KEY = os.getenv("ALIENVAULT_API_KEY")
+
+# Add validation for required API keys
+def validate_api_keys():
+    missing_keys = []
+    if not VIRUSTOTAL_API_KEY:
+        missing_keys.append("VIRUSTOTAL_API_KEY")
+    if not SHODAN_API_KEY:
+        missing_keys.append("SHODAN_API_KEY")
+    if not ALIENVAULT_API_KEY:
+        missing_keys.append("ALIENVAULT_API_KEY")
+    
+    if missing_keys:
+        raise ValueError(f"Missing required API keys: {', '.join(missing_keys)}")
+
+# Add API key validation at startup
+validate_api_keys()
 
 class ThreatAggregator:
     """
@@ -19,8 +36,21 @@ class ThreatAggregator:
     def fetch_data(url: str, headers: dict = None, params: dict = None):
         """Helper method to make an API request and handle errors."""
         try:
-            response = requests.get(url, headers=headers, params=params, timeout=10)
-            response.raise_for_status()  # Raise an error for non-200 responses
+            # Add input validation for URL
+            if not url.startswith(('http://', 'https://')):
+                raise ValueError("Invalid URL scheme")
+                
+            # Add request rate limiting
+            time.sleep(1)  # Basic rate limiting
+            
+            response = requests.get(
+                url, 
+                headers=headers, 
+                params=params, 
+                timeout=10,
+                verify=True  # Enforce SSL verification
+            )
+            response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
             return {"error": str(e)}

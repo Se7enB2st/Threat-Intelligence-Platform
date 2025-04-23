@@ -21,6 +21,18 @@ class JSONString(String):
             return json.loads(value)
         return None
 
+class JSONEncodedString(String):
+    """Custom type to handle JSON serialization/deserialization"""
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            return json.dumps(value)
+        return None
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            return json.loads(value)
+        return None
+
 class IPAddress(Base):
     """Main table for storing IP addresses and their overall threat scores"""
     __tablename__ = 'ip_addresses'
@@ -106,10 +118,10 @@ class AlienVaultData(Base):
 
     id = Column(Integer, primary_key=True)
     ip_address_id = Column(Integer, ForeignKey('ip_addresses.id'), nullable=False)
-    pulse_count = Column(Integer)
-    reputation = Column(Integer)
-    activity_types = Column(JSONString)  # Store types of malicious activities
-    raw_data = Column(JSONString)  # Store complete API response
+    pulse_count = Column(Integer, nullable=True)
+    reputation = Column(Integer, nullable=True)
+    activity_types = Column(JSONEncodedString(1024), nullable=True)  # Store as JSON string
+    raw_data = Column(JSONEncodedString(4096), nullable=True)  # Store as JSON string
     last_updated = Column(DateTime, default=datetime.utcnow)
     
     # Relationship

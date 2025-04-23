@@ -8,12 +8,26 @@ from threat_analyzer import ThreatAnalyzer
 from data_manager import ThreatDataManager
 from threat_aggregation import ThreatAggregator
 import json
+import re
+import html
 
 # Initialize global variables
 db = None
 analyzer = None
 data_manager = None
 aggregator = None
+
+# Add input validation functions
+def is_valid_ip(ip: str) -> bool:
+    """Validate IP address format"""
+    pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
+    if not re.match(pattern, ip):
+        return False
+    return all(0 <= int(part) <= 255 for part in ip.split('.'))
+
+def sanitize_input(input_str: str) -> str:
+    """Sanitize user input to prevent XSS"""
+    return html.escape(input_str.strip())
 
 def show_dashboard():
     """Display the main dashboard with key metrics and visualizations"""
@@ -61,51 +75,26 @@ def show_dashboard():
             st.info("No correlation data available yet")
 
 def show_ip_lookup():
-    """Display detailed information about a specific IP"""
-    st.header("IP Address Lookup")
+    """Display IP lookup interface with improved security"""
+    st.subheader("IP Address Lookup")
     
-    ip_address = st.text_input("Enter IP address to lookup:")
+    ip_address = st.text_input("Enter IP Address")
+    
     if ip_address:
-        details = analyzer.get_ip_details(db, ip_address)
-        
-        if "error" in details:
-            st.error(details["error"])
-        else:
-            # Create columns for basic info
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Threat Score", f"{details['overall_threat_score']:.2f}")
-            with col2:
-                st.metric("First Seen", details['first_seen'])
-            with col3:
-                st.metric("Status", "Malicious" if details['is_malicious'] else "Clean")
-
-            # Show detailed information in expandable sections
-            with st.expander("VirusTotal Data"):
-                if details['threat_data']['virustotal']:
-                    vt_data = details['threat_data']['virustotal']
-                    st.write(f"Malicious: {vt_data['malicious_count']}")
-                    st.write(f"Suspicious: {vt_data['suspicious_count']}")
-                    st.write(f"Harmless: {vt_data['harmless_count']}")
-                else:
-                    st.info("No VirusTotal data available")
-
-            with st.expander("Shodan Data"):
-                if details['threat_data']['shodan']:
-                    shodan_data = details['threat_data']['shodan']
-                    st.write("Open Ports:", ", ".join(map(str, shodan_data['ports'])))
-                    st.write("Vulnerabilities:", ", ".join(shodan_data['vulnerabilities']))
-                else:
-                    st.info("No Shodan data available")
-
-            with st.expander("AlienVault Data"):
-                if details['threat_data']['alienvault']:
-                    av_data = details['threat_data']['alienvault']
-                    st.write(f"Pulse Count: {av_data['pulse_count']}")
-                    st.write(f"Reputation: {av_data['reputation']}")
-                    st.write("Activities:", ", ".join(av_data['activity_types']))
-                else:
-                    st.info("No AlienVault data available")
+        # Validate and sanitize input
+        ip_address = sanitize_input(ip_address)
+        if not is_valid_ip(ip_address):
+            st.error("Invalid IP address format")
+            return
+            
+        # Proceed with lookup
+        ip_details = analyzer.get_ip_details(db, ip_address)
+        if "error" in ip_details:
+            st.error(ip_details["error"])
+            return
+            
+        # Display results
+        display_ip_details(ip_details)
 
 def show_high_risk_ips():
     """Display a list of high-risk IPs"""

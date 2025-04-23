@@ -128,7 +128,13 @@ class ThreatDataManager:
 
     @staticmethod
     def _save_alienvault_data(db: Session, ip_id: int, av_data: Dict) -> Optional[models.AlienVaultData]:
-        """Save AlienVault data for an IP"""
+        """
+        Save AlienVault OTX data
+        """
+        if not av_data or "error" in av_data:
+            return None
+
+        # Get existing record or create new one
         av_record = db.query(models.AlienVaultData).filter(
             models.AlienVaultData.ip_address_id == ip_id
         ).first()
@@ -137,13 +143,28 @@ class ThreatDataManager:
             av_record = models.AlienVaultData(ip_address_id=ip_id)
             db.add(av_record)
 
-        av_record.pulse_count = av_data.get('pulse_info', {}).get('count', 0)
-        av_record.reputation = av_data.get('reputation', 0)
-        av_record.activity_types = av_data.get('activity_types', [])
-        av_record.raw_data = av_data
+        try:
+            # Extract and validate data
+            av_record.pulse_count = int(av_data.get('pulse_count', 0))
+            av_record.reputation = int(av_data.get('reputation', 0))
+            
+            # Handle activity types - ensure it's a list before storing
+            activity_types = av_data.get('activity_types', [])
+            if not isinstance(activity_types, list):
+                activity_types = []
+            av_record.activity_types = activity_types
 
-        db.flush()
-        return av_record
+            # Store raw data
+            av_record.raw_data = av_data
+            av_record.last_updated = datetime.utcnow()
+
+            db.flush()
+            return av_record
+
+        except Exception as e:
+            db.rollback()
+            print(f"Error saving AlienVault data: {str(e)}")
+            return None
 
     @staticmethod
     def _update_threat_score(db: Session, ip_record: models.IPAddress):
