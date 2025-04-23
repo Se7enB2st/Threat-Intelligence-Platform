@@ -1,55 +1,89 @@
-# Threat Intelligence Platform (MVP)
+# Threat Intelligence Platform
 
 ## Overview
-The **Threat Intelligence Platform** is a minimal viable product designed to aggregate and analyze cyber threat intelligence from key sources. It provides essential threat detection capabilities with a focus on simplicity, automation, and scalability. The platform features automated data collection, continuous analysis, and a real-time web interface for monitoring threats.
+The **Threat Intelligence Platform** is a comprehensive security analysis tool that combines threat intelligence gathering, domain security analysis, and continuous monitoring capabilities. It provides real-time security insights for both IP addresses and domains, with automated data collection and analysis features.
 
 ## Core Features
-- **Automated Threat Intelligence:** Continuous collection and analysis of threat data
-- **Threat Aggregation:** Fetches intelligence from VirusTotal, Shodan, and AlienVault OTX
-- **Real-time Monitoring:** Automated detection and alerting for high-risk IPs
-- **Advanced Analytics:** Automated trend analysis and threat pattern detection
-- **Secure Implementation:** Environment-based configuration and secure API key management
-- **Web Dashboard:** Real-time visualization of threat intelligence data
-- **Domain Analysis** Comprehensive Domain Analysis on certificate validation, DNS analysis etc
-- **Automated Service Management:** Self-healing processes and continuous operation
-- **Comprehensive Logging:** Detailed activity and error logging for monitoring
+
+### Threat Intelligence
+- **Automated Data Collection:** Continuous gathering of threat intelligence
+- **Multi-Source Analysis:** Integration with VirusTotal, Shodan, and AlienVault OTX
+- **Real-time Monitoring:** Automated detection and alerting for security threats
+- **Trend Analysis:** Historical data analysis and threat pattern detection
+
+### Domain Security Analysis
+- **SSL/TLS Verification:** Certificate validation and expiration monitoring
+- **Security Headers:** Analysis of HTTP security headers
+- **DNS Analysis:** Comprehensive DNS record verification
+- **WHOIS Information:** Domain registration and ownership verification
+- **Reputation Checking:** Domain reputation analysis via VirusTotal
+
+### Platform Features
+- **Automated Operation:** Self-healing processes and continuous monitoring
+- **Interactive Dashboard:** Real-time data visualization
+- **Secure Implementation:** Environment-based configuration and secure API handling
+- **Comprehensive Logging:** Detailed activity and error tracking
+
+## Security Features
+
+### Data Protection
+- Secure API key management via environment variables
+- Database connection security with parameterized queries
+- Input validation and sanitization for all user inputs
+- SSL/TLS verification for all external API calls
+
+### Access Control
+- Rate limiting for API requests
+- Error handling and logging
+- Secure data storage practices
+- Protection against common web vulnerabilities
+
+### Best Practices
+- Environment-based configuration
+- Secure dependency management
+- Regular security updates
+- Comprehensive error logging
 
 ## Tech Stack
-- **Programming Language:** Python 3.10+
-- **Web Framework:** Streamlit for interactive dashboard
-- **Threat Intelligence Sources:** 
+- **Backend:** Python 3.10+
+- **Web Framework:** Streamlit
+- **Database:** SQLite (Development) / PostgreSQL (Production)
+- **API Integrations:**
   - VirusTotal API
   - Shodan API
   - AlienVault OTX API
-- **Database:** SQLite (Development) / PostgreSQL (Production)
-- **Automation:** Schedule library for task management
-- **Process Management:** Threading and subprocess handling
+- **Additional Libraries:**
+  - python-whois
+  - dnspython
+  - tldextract
+  - requests
+  - pandas
+  - plotly
 
 ## Prerequisites
-Before you begin, ensure you have:
 - Python 3.10+
 - pip (Python package manager)
-- API keys from:
+- Required API keys:
   - [VirusTotal](https://www.virustotal.com/gui/join-us)
   - [Shodan](https://account.shodan.io/)
   - [AlienVault OTX](https://otx.alienvault.com/)
 
 ## Installation
 
-### Step 1: Clone the Repository
+### 1. Clone the Repository
 ```bash
 git clone https://github.com/Se7enB2st/Threat-Intelligence-Platform.git
 cd Threat-Intelligence-Platform
 ```
 
-### Step 2: Set Up Virtual Environment
+### 2. Set Up Virtual Environment
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Step 3: Configure Environment Variables
+### 3. Configure Environment Variables
 Create a `.env` file in the root directory:
 ```plaintext
 # API Keys (required)
@@ -69,102 +103,114 @@ SCAN_INTERVAL_MINUTES=60
 BATCH_SIZE=10
 HIGH_RISK_THRESHOLD=70.0
 
+# Rate Limiting
+MAX_REQUESTS_PER_MINUTE=60
+DOMAIN_SCAN_COOLDOWN=300
+
 # Environment
 ENVIRONMENT=development
 ```
 
-### Step 4: Initialize the Database
+### 4. Initialize the Database
 ```bash
 python reset_database.py
 ```
 
-## Running the Platform
+## Usage
 
-### Option 1: Running as a Service (Recommended)
-This option provides automated operation with self-healing capabilities:
+### Running as a Service (Recommended)
 ```bash
 python threat_service.py
 ```
+
 This will:
-- Start the automated data collection and analysis
+- Start the automated threat intelligence collection
 - Launch the web interface
-- Monitor and restart processes if they fail
-- Handle graceful shutdowns
+- Begin domain security monitoring
+- Enable self-healing capabilities
 
-### Option 2: Running Components Separately
-For development or debugging:
-
-1. Start the automation:
+### Development Mode
 ```bash
+# Start automation separately
 python automation.py
-```
 
-2. Start the web interface:
-```bash
+# Start web interface
 streamlit run web_interface.py
 ```
 
-## Monitoring and Logs
-- Main application logs: `threat_automation.log`
-- Access the web interface at: `http://localhost:8501`
+## Features Guide
 
-## Security Features
-- Secure API key management through environment variables
+### 1. Threat Intelligence Dashboard
+- Real-time threat metrics
+- Trend analysis
+- Geographic distribution
+- Source correlation analysis
+
+### 2. Domain Security Analysis
+- Enter any domain name for analysis
+- View comprehensive security metrics
+- SSL/TLS verification
+- Security header analysis
+- DNS and WHOIS verification
+
+### 3. IP Analysis
+- Single or bulk IP scanning
+- Threat score calculation
+- Historical trend analysis
+- Correlation with known threats
+
+### 4. Automated Monitoring
+- Continuous security scanning
+- Automated alerts for high-risk threats
+- Regular data updates
+- Self-healing processes
+
+## Security Considerations
+
+### API Key Protection
+- Store API keys in `.env` file
+- Never commit `.env` file to version control
+- Use environment variables for sensitive data
+
+### Rate Limiting
+- Implemented for all API calls
+- Configurable limits in `.env`
+- Protection against API abuse
+
+### Data Security
+- Secure database connections
 - Input validation and sanitization
+- Parameterized queries
 - Error handling and logging
-- Rate limiting for API requests
-- Database connection security
-- JSON data validation and sanitization
 
-## Architecture
-The platform consists of several key components:
+### Best Practices
+- Regular dependency updates
+- Secure coding practices
+- Comprehensive error handling
+- Activity logging
 
-1. **Data Collection (`threat_aggregation.py`)**
-   - Handles API interactions with threat intelligence sources
-   - Implements rate limiting and error handling
-
-2. **Data Management (`data_manager.py`)**
-   - Manages database operations
-   - Handles data validation and storage
-
-3. **Threat Analysis (`threat_analyzer.py`)**
-   - Processes threat intelligence data
-   - Generates insights and risk scores
-
-4. **Web Interface (`web_interface.py`)**
-   - Provides real-time dashboard
-   - Visualizes threat data and analytics
-
-5. **Automation (`automation.py`)**
-   - Manages scheduled tasks
-   - Handles continuous data collection and analysis
-
-6. **Service Management (`threat_service.py`)**
-   - Manages platform processes
-   - Provides self-healing capabilities
-
-## Contributing
-Contributions are welcome! Please follow these steps:
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+## Monitoring and Logs
+- Application logs: `threat_automation.log`
+- Web interface: `http://localhost:8501`
+- Database logs (when enabled)
 
 ## Troubleshooting
-Common issues and solutions:
 
-1. **Database Errors**
-   - Run `reset_database.py` to reinitialize the database
-   - Check database credentials in `.env`
-
-2. **API Key Issues**
-   - Verify API keys in `.env`
+### Common Issues
+1. **API Key Errors**
+   - Verify keys in `.env`
    - Check API rate limits
+   - Confirm API service status
+
+2. **Database Errors**
+   - Run `reset_database.py`
+   - Check database credentials
+   - Verify database connections
 
 3. **Process Crashes**
-   - Check `threat_automation.log` for error details
+   - Check `threat_automation.log`
    - Verify system resources
+   - Check for Python updates
 
 ## Future Enhancements
 - Machine learning-based threat detection
@@ -173,6 +219,21 @@ Common issues and solutions:
 - Email/Slack notifications
 - Custom alerting rules
 - API endpoint for external integration
+- Enhanced rate limiting
+- Additional security features
+
+## Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## Security Policy
+- Report security vulnerabilities privately
+- Regular security audits
+- Dependency vulnerability scanning
+- Secure coding guidelines
 
 ## Contact
 For support or queries, please open an issue in the GitHub repository.

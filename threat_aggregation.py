@@ -3,6 +3,7 @@ import requests
 from dotenv import load_dotenv
 from database import get_db
 from data_manager import ThreatDataManager
+import ipaddress
 import time
 
 # Load API keys from .env file
@@ -36,21 +37,8 @@ class ThreatAggregator:
     def fetch_data(url: str, headers: dict = None, params: dict = None):
         """Helper method to make an API request and handle errors."""
         try:
-            # Add input validation for URL
-            if not url.startswith(('http://', 'https://')):
-                raise ValueError("Invalid URL scheme")
-                
-            # Add request rate limiting
-            time.sleep(1)  # Basic rate limiting
-            
-            response = requests.get(
-                url, 
-                headers=headers, 
-                params=params, 
-                timeout=10,
-                verify=True  # Enforce SSL verification
-            )
-            response.raise_for_status()
+            response = requests.get(url, headers=headers, params=params, timeout=10)
+            response.raise_for_status()  # Raise an error for non-200 responses
             return response.json()
         except requests.exceptions.RequestException as e:
             return {"error": str(e)}
@@ -87,22 +75,36 @@ class ThreatAggregator:
     @staticmethod
     def aggregate_threat_data(ip: str):
         """Fetch threat intelligence data from multiple sources."""
+        # Validate and clean IP address
+        try:
+            ip_obj = ipaddress.ip_address(ip)
+            ip_str = str(ip_obj)  # Convert to string format
+        except ValueError:
+            return {"error": "Invalid IP address format"}
+
+        # Add delay between API calls to respect rate limits
+        time.sleep(1)
+
         return {
-            "ip": ip,
-            "virustotal": ThreatAggregator.check_ip_virustotal(ip),
-            "shodan": ThreatAggregator.check_ip_shodan(ip),
-            "alienvault": ThreatAggregator.check_ip_alienvault(ip)
+            "ip": ip_str,
+            "virustotal": ThreatAggregator.check_ip_virustotal(ip_str),
+            "shodan": ThreatAggregator.check_ip_shodan(ip_str),
+            "alienvault": ThreatAggregator.check_ip_alienvault(ip_str)
         }
 
 # Example usage
 if __name__ == "__main__":
     test_ip = "8.8.8.8"  # Replace with an actual IP to test
-    data = ThreatAggregator.aggregate_threat_data(test_ip)
+    aggregator = ThreatAggregator()
+    data = aggregator.aggregate_threat_data(test_ip)
     
     # Save to database
     db = next(get_db())
     try:
-        ip_record = ThreatDataManager.save_threat_data(db, test_ip, data)
-        print(f"Data saved successfully. Threat score: {ip_record.overall_threat_score}")
+        data_manager = ThreatDataManager()
+        ip_record = data_manager.save_threat_data(db, test_ip, data)
+        print(f"Data saved successfully for IP: {test_ip}")
+    except Exception as e:
+        print(f"Error saving data: {str(e)}")
     finally:
         db.close()
