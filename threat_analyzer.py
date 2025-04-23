@@ -347,6 +347,16 @@ class ThreatAnalyzer:
             ]
         }
 
+    def get_ip_geographic_distribution(self, db: Session) -> List[Dict]:
+        """Get geographic distribution of IPs"""
+        # Implementation for getting geographic distribution
+        pass
+
+    def get_recent_activities(self, db: Session, limit: int = 5) -> List[Dict]:
+        """Get recent scanning activities"""
+        # Implementation for getting recent activities
+        pass
+
 # Example usage
 if __name__ == "__main__":
     db = next(get_db())

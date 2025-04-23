@@ -106,6 +106,21 @@ class ThreatAutomation:
         finally:
             db.close()
 
+    def get_initial_ip_list(self) -> List[str]:
+        """Get initial list of IPs to scan"""
+        return [
+            "8.8.8.8",  # Google DNS
+            "1.1.1.1",  # Cloudflare DNS
+            "208.67.222.222",  # OpenDNS
+            # Add more IPs as needed
+        ]
+
+    def initial_scan(self):
+        """Perform initial scan of IPs"""
+        ip_list = self.get_initial_ip_list()
+        for ip in ip_list:
+            self.scan_ip(ip)
+
 def run_threaded(job_func):
     """Run function in a thread"""
     job_thread = threading.Thread(target=job_func)
