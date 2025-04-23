@@ -1,22 +1,103 @@
-# .gitignore
-.env
+# Docker
+.docker/
+docker-compose.override.yml
+*.env
+.env.*
+!.env.example
+
+# Development artifacts
+*.db
+*.sqlite
+*.sqlite3
+data/
+logs/
+model_cache/
+threat_cache/
+
+# Python
 __pycache__/
-*.pyc
-.DS_Store
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Ignore virtual environment
+# Virtual Environment
+.env
+.venv
+env/
 venv/
+ENV/
+env.bak/
+venv.bak/
 
-# Ignore Docker and Terraform related files
-*.tfstate
-*.tfstate.backup
-.terraform/
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
 
-# Ignore logs and temp files
+# Logs and databases
 *.log
-*.tmp
+*.sql
+*.sqlite
+logs/
+*.db
 
-# ignore visualizations
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker volumes
+postgres_data/
+model_cache/
+threat_cache/
+
+# Test coverage
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# ML models and data
+models/*.h5
+models/*.pkl
+models/*.joblib
+*.model
+*.bin
+*.vec
+*.npy
+*.npz
+
+# Visualizations
 *.png
 *.jpg
 *.jpeg
@@ -24,10 +105,8 @@ venv/
 *.bmp
 *.tiff
 
-# ignore ml model files
-*.pkl
-*.joblib
-*.pickle
-*.pickle.gz
-*.pickle.bz2
-
+# Kubernetes
+k8s/
+*.tfstate
+*.tfstate.backup
+.terraform/

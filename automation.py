@@ -22,6 +22,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Database Configuration
+POSTGRES_USER=admin
+POSTGRES_PASSWORD=secure_password_here
+POSTGRES_DB=threats_db
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+
+# Application Configuration
+ENVIRONMENT=development
+DEBUG=true
+
+# API Keys (replace with your actual API keys)
+VIRUSTOTAL_API_KEY=your_virustotal_api_key
+SHODAN_API_KEY=your_shodan_api_key
+ALIENVAULT_API_KEY=your_alienvault_api_key
+
+# Service Ports
+WEB_PORT=8501
+ML_SERVICE_PORT=5000
+ANALYZER_PORT=5001
+
 class ThreatAutomation:
     def __init__(self):
         load_dotenv()
