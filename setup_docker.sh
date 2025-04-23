@@ -179,6 +179,16 @@ services:
       retries: 5
     networks:
       - threat-intel-network
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   # Web Interface service
   web:
@@ -200,6 +210,17 @@ services:
       - POSTGRES_HOST=db
       - ML_SERVICE_URL=http://ml:5000
       - ANALYZER_SERVICE_URL=http://analyzer:5001
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   # ML Detection service
   ml:
@@ -217,6 +238,17 @@ services:
       - threat-intel-network
     environment:
       - POSTGRES_HOST=db
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   # Threat Analysis service
   analyzer:
@@ -233,6 +265,17 @@ services:
       - threat-intel-network
     environment:
       - POSTGRES_HOST=db
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 768M
+        reservations:
+          cpus: '0.25'
+          memory: 384M
 
 networks:
   threat-intel-network:
