@@ -1,10 +1,12 @@
 from sqlalchemy.orm import Session
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import models
 from database import get_db
 import json
 import ipaddress
+import pandas as pd
+import random
 
 class ThreatDataManager:
     """Manages all database operations for threat intelligence data"""
@@ -173,4 +175,156 @@ class ThreatDataManager:
 
         except Exception as e:
             print(f"Error saving AlienVault data: {str(e)}")
-            return None 
+            return None
+
+    def get_training_data(self, db: Session) -> pd.DataFrame:
+        """
+        Get historical data for ML model training
+        """
+        try:
+            # Get all IP records with their related data
+            ip_records = db.query(models.IPAddress).all()
+            training_data = []
+
+            for ip in ip_records:
+                try:
+                    # Get related data
+                    vt_data = ip.virustotal_data
+                    shodan_data = ip.shodan_data
+                    av_data = ip.alienvault_data
+
+                    # Parse Shodan data safely
+                    shodan_ports = []
+                    shodan_vulns = []
+                    if shodan_data:
+                        if shodan_data.ports:
+                            try:
+                                shodan_ports = json.loads(shodan_data.ports) if isinstance(shodan_data.ports, str) else []
+                            except:
+                                shodan_ports = []
+                        if shodan_data.vulns:
+                            try:
+                                shodan_vulns = json.loads(shodan_data.vulns) if isinstance(shodan_data.vulns, str) else []
+                            except:
+                                shodan_vulns = []
+
+                    # Create feature dictionary with consistent ordering
+                    features = {
+                        'ip_address': ip.ip_address,
+                        'is_malicious': bool(ip.is_malicious),
+                        'vt_malicious_count': vt_data.malicious_count if vt_data else 0,
+                        'vt_suspicious_count': vt_data.suspicious_count if vt_data else 0,
+                        'shodan_vuln_count': len(shodan_vulns),
+                        'shodan_port_count': len(shodan_ports),
+                        'av_pulse_count': av_data.pulse_count if av_data else 0,
+                        'av_reputation': av_data.reputation if av_data else 0,
+                        'port_risk_score': self._calculate_port_risk(shodan_ports),
+                        'update_frequency': (
+                            (ip.last_updated - ip.first_seen).days 
+                            if ip.last_updated and ip.first_seen else 0
+                        ),
+                        'geographic_risk': self._calculate_geographic_risk(ip)
+                    }
+                    
+                    training_data.append(features)
+                except Exception as e:
+                    print(f"Error processing IP {ip.ip_address}: {str(e)}")
+                    continue
+
+            # Convert to DataFrame
+            df = pd.DataFrame(training_data)
+            
+            # Handle missing values
+            df = df.fillna(0)
+            
+            # Ensure we have enough data
+            if len(df) < 10:
+                # Add synthetic data for initial training
+                synthetic_data = self._generate_synthetic_data(100)
+                df = pd.concat([df, pd.DataFrame(synthetic_data)], ignore_index=True)
+
+            return df
+
+        except Exception as e:
+            raise Exception(f"Error getting training data: {str(e)}")
+
+    def _calculate_port_risk(self, ports: List[int]) -> float:
+        """Calculate risk score based on open ports"""
+        high_risk_ports = {21, 23, 3389, 445, 135, 137, 138, 139}
+        medium_risk_ports = {80, 443, 8080, 8443, 22}
+        
+        risk_score = 0
+        for port in ports:
+            if port in high_risk_ports:
+                risk_score += 10
+            elif port in medium_risk_ports:
+                risk_score += 5
+            else:
+                risk_score += 1
+        
+        return min(100, risk_score)
+
+    def _calculate_geographic_risk(self, ip_record: models.IPAddress) -> float:
+        """Calculate risk score based on geographic location"""
+        # Get country code from Shodan data if available
+        country_code = None
+        if ip_record.shodan_data and ip_record.shodan_data.raw_data:
+            try:
+                shodan_raw = json.loads(ip_record.shodan_data.raw_data)
+                country_code = shodan_raw.get('country_code', '')
+            except:
+                pass
+
+        # Define high-risk countries
+        high_risk_countries = {'CN', 'RU', 'IR', 'KP', 'SY'}
+        medium_risk_countries = {'BR', 'IN', 'NG', 'VN', 'ID'}
+        
+        if country_code in high_risk_countries:
+            return 100
+        elif country_code in medium_risk_countries:
+            return 50
+        return 0
+
+    def _generate_synthetic_data(self, n_samples: int) -> List[Dict]:
+        """
+        Generate synthetic data for initial model training
+        """
+        synthetic_data = []
+        
+        # Define ranges for features
+        feature_ranges = {
+            'vt_malicious_count': (0, 50),
+            'vt_suspicious_count': (0, 30),
+            'shodan_vuln_count': (0, 20),
+            'shodan_port_count': (0, 100),
+            'av_pulse_count': (0, 100),
+            'av_reputation': (-100, 100),
+            'port_risk_score': (0, 100),
+            'update_frequency': (0, 365),
+            'geographic_risk': (0, 100)
+        }
+        
+        for _ in range(n_samples):
+            # Generate random features
+            features = {
+                'ip_address': f"192.168.{random.randint(0, 255)}.{random.randint(0, 255)}",
+            }
+            
+            # Generate random values for each feature
+            for feature, (min_val, max_val) in feature_ranges.items():
+                features[feature] = random.uniform(min_val, max_val)
+            
+            # Determine if IP is malicious based on feature values
+            malicious_score = (
+                features['vt_malicious_count'] * 0.3 +
+                features['shodan_vuln_count'] * 0.2 +
+                features['port_risk_score'] * 0.2 +
+                features['geographic_risk'] * 0.2 +
+                abs(features['av_reputation']) * 0.1
+            ) / 100
+            
+            features['is_malicious'] = malicious_score > 0.7
+            
+            synthetic_data.append(features)
+        
+        return synthetic_data 

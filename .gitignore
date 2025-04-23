@@ -23,3 +23,11 @@ venv/
 *.gif
 *.bmp
 *.tiff
+
+# ignore ml model files
+*.pkl
+*.joblib
+*.pickle
+*.pickle.gz
+*.pickle.bz2
+

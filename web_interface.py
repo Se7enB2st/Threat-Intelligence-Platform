@@ -13,6 +13,7 @@ import json
 import re
 import html
 import os
+from ml_detector import ThreatMLDetector
 
 # Initialize global variables
 db = None
@@ -20,6 +21,7 @@ analyzer = None
 data_manager = None
 aggregator = None
 domain_analyzer = None
+ml_detector = None
 
 # Add input validation functions
 def is_valid_ip(ip_str):
@@ -215,6 +217,94 @@ def show_domain_analysis():
             except Exception as e:
                 st.error(f"Error analyzing domain: {str(e)}")
 
+def show_ml_analysis():
+    """Display machine learning-based threat analysis"""
+    st.subheader("ML-Based Threat Analysis")
+    
+    # Show model information
+    model_info = ml_detector.get_model_info()
+    if model_info['models_trained']:
+        st.success("ML models are trained and ready")
+        
+        # Show model details in expander
+        with st.expander("Model Details"):
+            st.json(model_info)
+    else:
+        st.warning("ML models need to be trained")
+        if st.button("Train Models"):
+            with st.spinner("Training ML models..."):
+                try:
+                    # Get historical data for training
+                    training_data = data_manager.get_training_data(db)
+                    if len(training_data) > 0:
+                        metrics = ml_detector.train_models(training_data)
+                        st.success("Models trained successfully!")
+                        st.write("Model Performance:")
+                        st.json(metrics)
+                    else:
+                        st.warning("No training data available. Please scan some IPs first.")
+                except Exception as e:
+                    st.error(f"Error training models: {str(e)}")
+    
+    # IP Analysis section
+    st.subheader("Analyze IP")
+    ip_address = st.text_input("Enter IP Address for ML Analysis")
+    
+    if ip_address and st.button("Analyze"):
+        if is_valid_ip(ip_address):
+            with st.spinner(f"Analyzing {ip_address}..."):
+                try:
+                    # Get threat data
+                    threat_data = aggregator.aggregate_threat_data(ip_address)
+                    
+                    if isinstance(threat_data, dict) and "error" not in threat_data:
+                        # Get ML predictions
+                        ml_analysis = ml_detector.predict_threat(threat_data)
+                        
+                        # Display results
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            st.metric(
+                                "Threat Probability",
+                                f"{ml_analysis['threat_probability']:.2%}",
+                                delta="High" if ml_analysis['is_high_risk'] else "Low"
+                            )
+                        
+                        with col2:
+                            st.metric(
+                                "Confidence Score",
+                                f"{ml_analysis['confidence_score']:.1f}%"
+                            )
+                        
+                        with col3:
+                            st.metric(
+                                "Anomaly Status",
+                                "Anomalous" if ml_analysis['is_anomaly'] else "Normal"
+                            )
+                        
+                        # Show feature values
+                        st.subheader("Feature Values")
+                        feature_df = pd.DataFrame([ml_analysis['feature_values']])
+                        st.dataframe(feature_df)
+                        
+                        # Show top contributing factors
+                        st.subheader("Top Contributing Factors")
+                        for factor in ml_analysis['top_factors']:
+                            st.write(f"• {factor['factor']}: {factor['importance']:.2%}")
+                        
+                        # Show detailed analysis in expander
+                        with st.expander("View Raw Analysis"):
+                            st.json(ml_analysis)
+                    else:
+                        st.error(f"Error getting threat data: {threat_data.get('error', 'Unknown error')}")
+                        
+                except Exception as e:
+                    st.error(f"Error in ML analysis: {str(e)}")
+                    st.error("Debug info: " + str(e.__class__.__name__))
+        else:
+            st.error("Invalid IP address format")
+
 def main():
     """Main function to run the Streamlit app"""
     st.set_page_config(
@@ -226,13 +316,14 @@ def main():
     st.title("🛡️ Threat Intelligence Dashboard")
 
     # Initialize global variables
-    global db, analyzer, data_manager, aggregator, domain_analyzer
+    global db, analyzer, data_manager, aggregator, domain_analyzer, ml_detector
     try:
         db = next(get_db())
         analyzer = ThreatAnalyzer()
         data_manager = ThreatDataManager()
         aggregator = ThreatAggregator()
         domain_analyzer = DomainAnalyzer()
+        ml_detector = ThreatMLDetector()
     except Exception as e:
         st.error(f"Error initializing services: {str(e)}")
         return
@@ -241,12 +332,14 @@ def main():
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
         "Select a page",
-        ["Dashboard", "Domain Analysis", "IP Lookup", "High Risk IPs", "Scan New IP"]
+        ["Dashboard", "ML Analysis", "Domain Analysis", "IP Lookup", "High Risk IPs", "Scan New IP"]
     )
 
     try:
         if page == "Dashboard":
             show_dashboard()
+        elif page == "ML Analysis":
+            show_ml_analysis()
         elif page == "Domain Analysis":
             show_domain_analysis()
         elif page == "IP Lookup":

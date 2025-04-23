@@ -1,7 +1,7 @@
 # Threat Intelligence Platform
 
 ## Overview
-The **Threat Intelligence Platform** is a comprehensive security analysis tool that combines threat intelligence gathering, domain security analysis, and continuous monitoring capabilities. It provides real-time security insights for both IP addresses and domains, with automated data collection and analysis features.
+The **Threat Intelligence Platform** is an advanced security analysis tool that combines traditional threat intelligence with machine learning capabilities. It provides comprehensive security insights for both IP addresses and domains, featuring automated data collection, ML-based threat detection, and continuous monitoring capabilities.
 
 ## Core Features
 
@@ -10,6 +10,13 @@ The **Threat Intelligence Platform** is a comprehensive security analysis tool t
 - **Multi-Source Analysis:** Integration with VirusTotal, Shodan, and AlienVault OTX
 - **Real-time Monitoring:** Automated detection and alerting for security threats
 - **Trend Analysis:** Historical data analysis and threat pattern detection
+
+### Machine Learning Capabilities
+- **ML-Based Threat Detection:** Advanced threat prediction using Random Forest
+- **Anomaly Detection:** Isolation Forest for identifying unusual patterns
+- **Feature Importance Analysis:** Understanding key threat indicators
+- **Automated Learning:** Continuous model improvement with new data
+- **Synthetic Data Generation:** Smart sampling for improved model training
 
 ### Domain Security Analysis
 - **SSL/TLS Verification:** Certificate validation and expiration monitoring
@@ -31,23 +38,27 @@ The **Threat Intelligence Platform** is a comprehensive security analysis tool t
 - Database connection security with parameterized queries
 - Input validation and sanitization for all user inputs
 - SSL/TLS verification for all external API calls
+- ML model input validation and sanitization
 
 ### Access Control
 - Rate limiting for API requests
 - Error handling and logging
 - Secure data storage practices
 - Protection against common web vulnerabilities
+- ML prediction validation
 
 ### Best Practices
 - Environment-based configuration
 - Secure dependency management
 - Regular security updates
 - Comprehensive error logging
+- Model security controls
 
 ## Tech Stack
 - **Backend:** Python 3.10+
 - **Web Framework:** Streamlit
 - **Database:** SQLite (Development) / PostgreSQL (Production)
+- **Machine Learning:** scikit-learn
 - **API Integrations:**
   - VirusTotal API
   - Shodan API
@@ -58,6 +69,7 @@ The **Threat Intelligence Platform** is a comprehensive security analysis tool t
   - tldextract
   - requests
   - pandas
+  - numpy
   - plotly
 
 ## Prerequisites
@@ -107,6 +119,11 @@ HIGH_RISK_THRESHOLD=70.0
 MAX_REQUESTS_PER_MINUTE=60
 DOMAIN_SCAN_COOLDOWN=300
 
+# ML Settings
+MODEL_UPDATE_INTERVAL=24
+MIN_TRAINING_SAMPLES=100
+SYNTHETIC_DATA_RATIO=0.2
+
 # Environment
 ENVIRONMENT=development
 ```
@@ -118,7 +135,7 @@ python reset_database.py
 
 ## Usage
 
-### Running as a Service (Recommended)
+### Running as a Service
 ```bash
 python threat_service.py
 ```
@@ -126,8 +143,9 @@ python threat_service.py
 This will:
 - Start the automated threat intelligence collection
 - Launch the web interface
-- Begin domain security monitoring
-- Enable self-healing capabilities
+- Initialize ML models
+- Enable continuous monitoring
+- Provide self-healing capabilities
 
 ### Development Mode
 ```bash
@@ -142,26 +160,36 @@ streamlit run web_interface.py
 
 ### 1. Threat Intelligence Dashboard
 - Real-time threat metrics
+- ML-based predictions
 - Trend analysis
 - Geographic distribution
 - Source correlation analysis
 
-### 2. Domain Security Analysis
-- Enter any domain name for analysis
-- View comprehensive security metrics
+### 2. Machine Learning Analysis
+- Threat probability prediction
+- Anomaly detection
+- Feature importance analysis
+- Confidence scoring
+- Model performance metrics
+
+### 3. Domain Security Analysis
 - SSL/TLS verification
 - Security header analysis
-- DNS and WHOIS verification
+- DNS record verification
+- WHOIS information
+- Reputation checking
 
-### 3. IP Analysis
-- Single or bulk IP scanning
-- Threat score calculation
+### 4. IP Analysis
+- Threat intelligence gathering
+- ML-based risk assessment
 - Historical trend analysis
 - Correlation with known threats
+- Detailed feature analysis
 
-### 4. Automated Monitoring
+### 5. Automated Monitoring
 - Continuous security scanning
-- Automated alerts for high-risk threats
+- ML model updates
+- Automated alerts
 - Regular data updates
 - Self-healing processes
 
@@ -171,26 +199,31 @@ streamlit run web_interface.py
 - Store API keys in `.env` file
 - Never commit `.env` file to version control
 - Use environment variables for sensitive data
+- Regular key rotation recommended
 
 ### Rate Limiting
 - Implemented for all API calls
 - Configurable limits in `.env`
 - Protection against API abuse
+- ML prediction rate limiting
 
 ### Data Security
 - Secure database connections
 - Input validation and sanitization
 - Parameterized queries
 - Error handling and logging
+- ML input validation
 
-### Best Practices
-- Regular dependency updates
-- Secure coding practices
-- Comprehensive error handling
-- Activity logging
+### Model Security
+- Secure model storage
+- Input validation for predictions
+- Synthetic data controls
+- Regular model updates
+- Performance monitoring
 
 ## Monitoring and Logs
 - Application logs: `threat_automation.log`
+- ML model logs: `ml_predictions.log`
 - Web interface: `http://localhost:8501`
 - Database logs (when enabled)
 
@@ -207,17 +240,25 @@ streamlit run web_interface.py
    - Check database credentials
    - Verify database connections
 
-3. **Process Crashes**
+3. **ML Model Issues**
+   - Check training data quality
+   - Verify feature consistency
+   - Review model logs
+   - Retrain models if needed
+
+4. **Process Crashes**
    - Check `threat_automation.log`
    - Verify system resources
+   - Review ML model status
    - Check for Python updates
 
 ## Future Enhancements
-- Machine learning-based threat detection
+- Advanced ML model architectures
+- Deep learning integration
 - Additional threat intelligence sources
 - Advanced correlation analysis
-- Email/Slack notifications
-- Custom alerting rules
+- Real-time alerting system
+- Custom ML model training
 - API endpoint for external integration
 - Enhanced rate limiting
 - Additional security features
@@ -234,6 +275,8 @@ streamlit run web_interface.py
 - Regular security audits
 - Dependency vulnerability scanning
 - Secure coding guidelines
+- ML model security reviews
+
 
 ## Contact
 For support or queries, please open an issue in the GitHub repository.
