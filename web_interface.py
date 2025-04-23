@@ -12,12 +12,14 @@ import json
 import re
 import html
 import os
+from domain_analyzer import DomainAnalyzer
 
 # Initialize global variables
 db = None
 analyzer = None
 data_manager = None
 aggregator = None
+domain_analyzer = None
 
 # Add input validation functions
 def is_valid_ip(ip_str):
@@ -410,6 +412,117 @@ def show_settings():
         if st.button("Confirm Reset"):
             st.success("Settings reset to default values!")
 
+def show_domain_analysis():
+    """Display domain security analysis interface"""
+    st.subheader("Domain Security Analysis")
+    
+    # Domain input
+    domain = st.text_input("Enter Domain Name (e.g., google.com, netflix.com)")
+    
+    if domain and st.button("Analyze Domain"):
+        with st.spinner(f"Analyzing {domain}..."):
+            try:
+                results = domain_analyzer.analyze_domain(domain)
+                
+                # Create tabs for different aspects of analysis
+                tab1, tab2, tab3, tab4 = st.tabs([
+                    "Overview", 
+                    "SSL/TLS", 
+                    "DNS & WHOIS",
+                    "Security Headers"
+                ])
+                
+                with tab1:
+                    st.subheader("Security Overview")
+                    
+                    # Create metrics for quick overview
+                    col1, col2, col3 = st.columns(3)
+                    
+                    # Security Headers Score
+                    header_score = results['security_headers'].get('security_score', 0)
+                    with col1:
+                        st.metric(
+                            "Security Headers Score",
+                            f"{header_score:.1f}%",
+                            delta="Good" if header_score > 80 else ("Fair" if header_score > 60 else "Poor")
+                        )
+                    
+                    # SSL Status
+                    ssl_status = "Valid" if not results['ssl_info'].get('is_expired') else "Expired"
+                    with col2:
+                        st.metric("SSL Status", ssl_status)
+                    
+                    # VirusTotal Reputation
+                    vt_info = results['virustotal_info']
+                    if 'error' not in vt_info:
+                        reputation = vt_info['reputation']
+                        with col3:
+                            st.metric("VT Reputation", reputation)
+                    
+                    # Display VirusTotal analysis stats if available
+                    if 'error' not in vt_info:
+                        st.subheader("Threat Analysis")
+                        analysis_stats = vt_info['last_analysis_stats']
+                        fig = px.pie(
+                            values=list(analysis_stats.values()),
+                            names=list(analysis_stats.keys()),
+                            title="VirusTotal Analysis Results"
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                
+                with tab2:
+                    st.subheader("SSL/TLS Information")
+                    ssl_info = results['ssl_info']
+                    if 'error' not in ssl_info:
+                        st.write("Certificate Details:")
+                        st.json({
+                            "Issuer": ssl_info['issuer'],
+                            "Subject": ssl_info['subject'],
+                            "Expires": ssl_info['expires'].isoformat(),
+                            "Version": ssl_info['version']
+                        })
+                    else:
+                        st.error(ssl_info['error'])
+                
+                with tab3:
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.subheader("DNS Records")
+                        dns_records = results['dns_records']
+                        if 'error' not in dns_records:
+                            for record_type, records in dns_records.items():
+                                st.write(f"{record_type} Records:")
+                                for record in records:
+                                    st.code(record)
+                    
+                    with col2:
+                        st.subheader("WHOIS Information")
+                        whois_info = results['whois_info']
+                        if 'error' not in whois_info:
+                            st.write("Registration Details:")
+                            st.json({
+                                "Registrar": whois_info['registrar'],
+                                "Created": whois_info['creation_date'],
+                                "Expires": whois_info['expiration_date'],
+                                "Updated": whois_info['last_updated']
+                            })
+                
+                with tab4:
+                    st.subheader("Security Headers")
+                    headers = results['security_headers']
+                    if 'error' not in headers:
+                        # Create a color-coded table of security headers
+                        for header, value in headers.items():
+                            if header != 'security_score':
+                                if value == "Not Set":
+                                    st.error(f"{header}: {value}")
+                                else:
+                                    st.success(f"{header}: {value}")
+                
+            except Exception as e:
+                st.error(f"Error analyzing domain: {str(e)}")
+
 def main():
     """Main function to run the Streamlit app"""
     st.set_page_config(
@@ -421,22 +534,26 @@ def main():
     st.title("🛡️ Threat Intelligence Dashboard")
 
     # Initialize database connection and classes
-    global db, analyzer, data_manager, aggregator
+    global db, analyzer, data_manager, aggregator, domain_analyzer
     db = next(get_db())
     analyzer = ThreatAnalyzer()
     data_manager = ThreatDataManager()
     aggregator = ThreatAggregator()
+    domain_analyzer = DomainAnalyzer()
 
     # Enhanced sidebar with more options
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
         "Select a page",
-        ["Dashboard", "IP Lookup", "High Risk IPs", "Scan New IP", "Analytics", "Settings"]
+        ["Dashboard", "Domain Analysis", "IP Lookup", "High Risk IPs", 
+         "Scan New IP", "Analytics", "Settings"]
     )
 
     try:
         if page == "Dashboard":
             show_dashboard()
+        elif page == "Domain Analysis":
+            show_domain_analysis()
         elif page == "IP Lookup":
             show_ip_lookup()
         elif page == "High Risk IPs":

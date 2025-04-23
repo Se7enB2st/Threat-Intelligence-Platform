@@ -10,6 +10,7 @@ The **Threat Intelligence Platform** is a minimal viable product designed to agg
 - **Advanced Analytics:** Automated trend analysis and threat pattern detection
 - **Secure Implementation:** Environment-based configuration and secure API key management
 - **Web Dashboard:** Real-time visualization of threat intelligence data
+- **Domain Analysis** Comprehensive Domain Analysis on certificate validation, DNS analysis etc
 - **Automated Service Management:** Self-healing processes and continuous operation
 - **Comprehensive Logging:** Detailed activity and error logging for monitoring
 
