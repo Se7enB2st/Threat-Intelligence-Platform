@@ -4,11 +4,12 @@ import ssl
 import whois
 import dns.resolver
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import tldextract
 from urllib.parse import urlparse
 import os
 from dotenv import load_dotenv
+from threat_analyzer.models.threat_models import DomainAnalysis, ThreatData
 
 load_dotenv()
 

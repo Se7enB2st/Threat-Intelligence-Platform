@@ -1,81 +1,31 @@
-version: '3.8'
-
 services:
-  # Database service
+  web:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - threat-intel-network
+
   db:
-    build:
-      context: .
-      dockerfile: Dockerfile.db
+    image: postgres:15-alpine
     env_file: .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-threats_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - threat-intel-network
 
-  # Web Interface service
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile.web
-    env_file: .env
-    ports:
-      - "${WEB_PORT}:8501"
-    depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-    networks:
-      - threat-intel-network
-    environment:
-      - POSTGRES_HOST=db
-      - ML_SERVICE_URL=http://ml:5000
-      - ANALYZER_SERVICE_URL=http://analyzer:5001
-
-  # ML Detection service
-  ml:
-    build:
-      context: .
-      dockerfile: Dockerfile.ml
-    env_file: .env
-    volumes:
-      - ./models:/app/models
-      - ./model_cache:/app/model_cache
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - threat-intel-network
-    environment:
-      - POSTGRES_HOST=db
-
-  # Threat Analysis service
-  analyzer:
-    build:
-      context: .
-      dockerfile: Dockerfile.analyzer
-    env_file: .env
-    volumes:
-      - ./threat_cache:/app/threat_cache
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - threat-intel-network
-    environment:
-      - POSTGRES_HOST=db
+volumes:
+  postgres_data:
 
 networks:
   threat-intel-network:
     driver: bridge
-
-volumes:
-  postgres_data:
-  model_cache:
-  threat_cache:
