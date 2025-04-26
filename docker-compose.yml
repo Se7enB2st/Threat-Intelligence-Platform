@@ -9,11 +9,22 @@ services:
       - POSTGRES_DB=threats_db
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_PORT=8501
+      - PYTHONUNBUFFERED=1
+    command: >
+      sh -c "echo 'Starting web service...' &&
+             streamlit run --server.address 0.0.0.0 --server.port 8501 app.py --logger.level=debug"
     depends_on:
       db:
         condition: service_healthy
     networks:
       - threat-intel-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   db:
     image: postgres:15-alpine

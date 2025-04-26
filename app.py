@@ -6,6 +6,11 @@ import ipaddress
 from database import get_db
 from threat_analyzer import ThreatAnalyzer
 
+# Add health check endpoint
+if st.query_params.get("health") == "check":
+    st.write("OK")
+    st.stop()
+
 # Initialize session state
 if 'db' not in st.session_state:
     st.session_state.db = get_db()
