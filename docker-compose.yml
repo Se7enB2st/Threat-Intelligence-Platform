@@ -3,7 +3,12 @@ services:
     build: .
     ports:
       - "8501:8501"
-    env_file: .env
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=your_secure_password
+      - POSTGRES_DB=threats_db
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
     depends_on:
       db:
         condition: service_healthy
@@ -12,7 +17,10 @@ services:
 
   db:
     image: postgres:15-alpine
-    env_file: .env
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=your_secure_password
+      - POSTGRES_DB=threats_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

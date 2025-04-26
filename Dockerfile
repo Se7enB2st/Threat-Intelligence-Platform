@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 COPY database.py .
 COPY threat_analyzer.py .
+COPY wait_for_db.py .
 
 # Set environment variables
 ENV PYTHONPATH=/app
@@ -31,4 +32,5 @@ USER appuser
 
 EXPOSE 8501
 
-CMD ["streamlit", "run", "app.py"] 
+# Wait for DB and then start Streamlit
+CMD ["sh", "-c", "python wait_for_db.py && streamlit run app.py"] 

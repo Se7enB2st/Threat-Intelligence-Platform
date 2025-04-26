@@ -1,13 +1,18 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, ForeignKey, JSON, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
 import os
 from dotenv import load_dotenv
 import json
+import logging
 
 # Load environment variables
 load_dotenv()
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
@@ -85,10 +90,20 @@ def get_db():
     DB_PORT = os.getenv("POSTGRES_PORT", "5432")
     DB_NAME = os.getenv("POSTGRES_DB", "threats_db")
     
-    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    # Log the connection parameters (except password)
+    logger.info(f"Connecting to database at {DB_HOST}:{DB_PORT}/{DB_NAME} with user {DB_USER}")
     
-    engine = create_engine(DATABASE_URL)
-    Base.metadata.create_all(engine)  # Create tables if they don't exist
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    
-    return SessionLocal() 
+    try:
+        DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+        engine = create_engine(DATABASE_URL)
+        
+        # Test the connection using SQLAlchemy's text()
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+            
+        Base.metadata.create_all(engine)
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        return SessionLocal()
+    except Exception as e:
+        logger.error(f"Database connection error: {str(e)}")
+        raise 

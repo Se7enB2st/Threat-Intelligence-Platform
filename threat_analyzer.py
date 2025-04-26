@@ -3,7 +3,7 @@ from sqlalchemy import desc, func, and_, text
 from datetime import datetime, timedelta
 import json
 from typing import List, Dict, Optional, Tuple
-from models import IPAddress, VirusTotalData, ShodanData, AlienVaultData, ScanHistory
+from database import IPAddress, VirusTotalData, ShodanData, AlienVaultData, ScanHistory
 from database import get_db
 import math
 
