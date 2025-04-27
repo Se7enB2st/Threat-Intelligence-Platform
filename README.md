@@ -1,7 +1,7 @@
 # Threat Intelligence Platform
 
 ## Overview
-The **Threat Intelligence Platform** is a security analysis tool that provides comprehensive threat intelligence for IP addresses. It integrates with multiple security data sources to provide detailed analysis and threat scoring.
+The **Threat Intelligence Platform** is a security analysis tool that provides comprehensive threat intelligence for IP addresses and domains. It integrates with multiple security data sources to provide detailed analysis and threat scoring.
 
 ## Core Features
 
@@ -10,6 +10,14 @@ The **Threat Intelligence Platform** is a security analysis tool that provides c
 - **Threat Scoring:** Overall threat score calculation
 - **Multi-Source Analysis:** Integration with VirusTotal, Shodan, and AlienVault OTX
 - **Historical Tracking:** First seen and last updated timestamps
+
+### Domain Analysis
+- **SSL/TLS Analysis:** Certificate validation and expiration monitoring
+- **DNS Analysis:** Comprehensive DNS record verification
+- **WHOIS Information:** Domain registration and ownership details
+- **Security Headers:** Analysis of HTTP security headers
+- **VirusTotal Integration:** Domain reputation checking
+- **Security Scoring:** Overall security assessment
 
 ### Dashboard Features
 - **Statistics Overview:**
@@ -35,6 +43,9 @@ The **Threat Intelligence Platform** is a security analysis tool that provides c
   - streamlit
   - pandas
   - plotly
+  - python-whois
+  - dnspython
+  - tldextract
 
 ## Prerequisites
 - Python 3.9+
@@ -62,6 +73,10 @@ POSTGRES_PASSWORD=postgres
 POSTGRES_DB=threat_intel
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
+
+# API Keys
+VIRUSTOTAL_API_KEY=your_virustotal_api_key
+SHODAN_API_KEY=your_shodan_api_key
 
 # Streamlit Configuration
 STREAMLIT_SERVER_ADDRESS=0.0.0.0
@@ -98,12 +113,21 @@ http://localhost:8501
 - Get comprehensive threat scoring
 - Access historical data and timestamps
 
+#### 3. Domain Analysis
+- Enter a domain (with protocol) for comprehensive analysis
+- View SSL/TLS certificate information
+- Check DNS records and configurations
+- Access WHOIS registration details
+- Analyze security headers
+- Get VirusTotal reputation score
+- View overall security assessment
+
 ## Security Features
 
 ### Data Protection
 - Secure database connections
 - Environment-based configuration
-- Input validation for IP addresses
+- Input validation for IP addresses and domains
 - Error handling and logging
 
 ### Best Practices
@@ -134,6 +158,12 @@ http://localhost:8501
    - Check Docker logs
    - Verify environment variables
    - Ensure all containers are running
+
+4. **Domain Analysis Issues**
+   - Ensure domain includes protocol (http:// or https://)
+   - Check network connectivity for DNS queries
+   - Verify SSL certificate access
+   - Check WHOIS service availability
 
 ## Support
 For issues and feature requests, please open an issue in the GitHub repository.

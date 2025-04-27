@@ -17,6 +17,12 @@ class DomainAnalyzer:
     def __init__(self):
         self.vt_api_key = os.getenv("VIRUSTOTAL_API_KEY")
         self.shodan_api_key = os.getenv("SHODAN_API_KEY")
+        # Configure DNS resolver
+        self.resolver = dns.resolver.Resolver()
+        self.resolver.timeout = 2
+        self.resolver.lifetime = 2
+        # Use public DNS servers
+        self.resolver.nameservers = ['8.8.8.8', '8.8.4.4', '1.1.1.1']
 
     def clean_domain(self, domain: str) -> str:
         """Clean and validate domain name"""
@@ -49,10 +55,16 @@ class DomainAnalyzer:
             records = {}
             for record_type in ['A', 'MX', 'NS', 'TXT', 'CNAME']:
                 try:
-                    answers = dns.resolver.resolve(domain, record_type)
+                    answers = self.resolver.resolve(domain, record_type)
                     records[record_type] = [str(answer) for answer in answers]
                 except dns.resolver.NoAnswer:
                     records[record_type] = []
+                except dns.resolver.Timeout:
+                    records[record_type] = ["Timeout"]
+                except dns.resolver.NXDOMAIN:
+                    records[record_type] = ["Domain not found"]
+                except Exception as e:
+                    records[record_type] = [f"Error: {str(e)}"]
             return records
         except Exception as e:
             return {"error": f"DNS Error: {str(e)}"}
@@ -61,11 +73,18 @@ class DomainAnalyzer:
         """Get WHOIS information"""
         try:
             w = whois.whois(domain)
+            
+            # Handle date fields that might be lists
+            def process_date(date_field):
+                if isinstance(date_field, list):
+                    return date_field[0] if date_field else None
+                return date_field
+
             return {
                 "registrar": w.registrar,
-                "creation_date": w.creation_date,
-                "expiration_date": w.expiration_date,
-                "last_updated": w.updated_date,
+                "creation_date": process_date(w.creation_date),
+                "expiration_date": process_date(w.expiration_date),
+                "last_updated": process_date(w.updated_date),
                 "status": w.status,
                 "name_servers": w.name_servers
             }
