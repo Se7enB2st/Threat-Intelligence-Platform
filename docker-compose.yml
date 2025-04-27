@@ -1,49 +1,61 @@
+version: '3.8'
+
 services:
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8501:8501"
+    env_file:
+      - .env
     environment:
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=your_secure_password
-      - POSTGRES_DB=threats_db
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
       - STREAMLIT_SERVER_ADDRESS=0.0.0.0
       - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_ENABLE_CORS=true
+      - STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=true
+      - STREAMLIT_SERVER_MAX_UPLOAD_SIZE=200
       - PYTHONUNBUFFERED=1
-    command: >
-      sh -c "echo 'Starting web service...' &&
-             streamlit run --server.address 0.0.0.0 --server.port 8501 app.py --logger.level=debug"
+      - PYTHONPATH=/app
     depends_on:
       db:
         condition: service_healthy
-    networks:
-      - threat-intel-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
-      interval: 10s
-      timeout: 5s
+      interval: 30s
+      timeout: 10s
       retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - threat-intel-network
 
   db:
     image: postgres:15-alpine
-    environment:
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=your_secure_password
-      - POSTGRES_DB=threats_db
+    env_file:
+      - .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-threats_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     networks:
       - threat-intel-network
 
 volumes:
   postgres_data:
+    driver: local
 
 networks:
   threat-intel-network:

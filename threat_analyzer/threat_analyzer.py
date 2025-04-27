@@ -11,20 +11,25 @@ import os
 import requests
 
 # Local imports
-from threat_analyzer.models.threat_models import (
+from .models.threat_models import (
     IPAddress, 
     VirusTotalData, 
     ShodanData, 
     AlienVaultData, 
     ScanHistory
 )
-from threat_analyzer.database import get_db, Database
+from threat_analyzer.database import get_db
 from threat_analyzer.analyzers.domain_analyzer import DomainAnalyzer
 from threat_analyzer.analyzers.ip_analyzer import IPAnalyzer
 from threat_analyzer.threat_aggregation import ThreatAggregator
 
 class ThreatAnalyzer:
     """Analyzes threat intelligence data from the database"""
+
+    def __init__(self):
+        self.app = Flask(__name__)
+        CORS(self.app)
+        self.logger = logging.getLogger(__name__)
 
     @staticmethod
     def get_ip_details(db: Session, ip_address: str) -> Dict:

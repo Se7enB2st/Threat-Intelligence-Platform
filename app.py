@@ -3,8 +3,8 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime
 import ipaddress
-from database import get_db
-from threat_analyzer import ThreatAnalyzer
+from threat_analyzer.database import get_db
+from threat_analyzer.threat_analyzer import ThreatAnalyzer
 
 # Add health check endpoint
 if st.query_params.get("health") == "check":

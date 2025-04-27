@@ -1,6 +1,5 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, ForeignKey, JSON, text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker, relationship, DeclarativeBase
 from datetime import datetime
 import os
 from dotenv import load_dotenv
@@ -14,7 +13,8 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
 
 class IPAddress(Base):
     __tablename__ = 'ip_addresses'
@@ -82,13 +82,51 @@ class ScanHistory(Base):
 
     ip_address = relationship("IPAddress", back_populates="scan_history")
 
+class IPAnalysis(Base):
+    __tablename__ = 'ip_analysis'
+    
+    id = Column(Integer, primary_key=True)
+    ip_address = Column(String, unique=True, nullable=False)
+    first_seen = Column(DateTime, default=datetime.utcnow)
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    overall_threat_score = Column(Float, default=0.0)
+    is_malicious = Column(Boolean, default=False)
+    threat_data = relationship("ThreatData", back_populates="ip_analysis")
+
+class DomainAnalysis(Base):
+    __tablename__ = 'domain_analysis'
+    
+    id = Column(Integer, primary_key=True)
+    domain = Column(String, unique=True, nullable=False)
+    first_seen = Column(DateTime, default=datetime.utcnow)
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    overall_threat_score = Column(Float, default=0.0)
+    is_malicious = Column(Boolean, default=False)
+    whois_data = Column(JSON)
+    dns_records = Column(JSON)
+    threat_data = relationship("ThreatData", back_populates="domain_analysis")
+
+class ThreatData(Base):
+    __tablename__ = 'threat_data'
+    
+    id = Column(Integer, primary_key=True)
+    ip_analysis_id = Column(Integer, ForeignKey('ip_analysis.id'), nullable=True)
+    domain_analysis_id = Column(Integer, ForeignKey('domain_analysis.id'), nullable=True)
+    source = Column(String, nullable=False)
+    data = Column(JSON)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    ip_analysis = relationship("IPAnalysis", back_populates="threat_data")
+    domain_analysis = relationship("DomainAnalysis", back_populates="threat_data")
+
 def get_db():
     """Create database connection"""
-    DB_USER = os.getenv("POSTGRES_USER", "admin")
-    DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "your_secure_password")
+    DB_USER = os.getenv("POSTGRES_USER", "postgres")
+    DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
     DB_HOST = os.getenv("POSTGRES_HOST", "db")
     DB_PORT = os.getenv("POSTGRES_PORT", "5432")
-    DB_NAME = os.getenv("POSTGRES_DB", "threats_db")
+    DB_NAME = os.getenv("POSTGRES_DB", "threat_intel")
     
     # Log the connection parameters (except password)
     logger.info(f"Connecting to database at {DB_HOST}:{DB_PORT}/{DB_NAME} with user {DB_USER}")

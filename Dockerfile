@@ -1,60 +1,62 @@
-FROM python:3.9-slim
+# Build stage
+FROM python:3.9-slim as builder
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
     build-essential \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser
-
-# Copy requirements first
+# Copy requirements first to leverage Docker cache
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir black pylint pytest pytest-cov
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
-COPY . /app/
+# Final stage
+FROM python:3.9-slim
 
-# Set development environment variables
-ENV PYTHONPATH=/app
-ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
-ENV STREAMLIT_SERVER_PORT=8501
-ENV STREAMLIT_SERVER_ENABLE_CORS=true
-ENV STREAMLIT_SERVER_HEADLESS=false
-ENV STREAMLIT_SERVER_MAX_UPLOAD_SIZE=200
-ENV STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=true
-ENV STREAMLIT_SERVER_ENABLE_WEBSOCKET_COMPRESSION=true
-ENV STREAMLIT_SERVER_FILE_WATCHER_TYPE=watchdog
-ENV STREAMLIT_SERVER_SHOW_ERROR_DETAILS=true
-ENV STREAMLIT_SERVER_SHOW_TRACE_IN_CONSOLE=true
-ENV STREAMLIT_SERVER_SHOW_DEBUG_MESSAGES=true
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
+WORKDIR /app
 
-# Create necessary directories and set permissions
-RUN mkdir -p /app/data /app/logs /app/tests && \
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser && \
+    mkdir -p /app/data /app/logs /app/tests && \
     chown -R appuser:appuser /app
 
+# Copy from builder
+COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application code
+COPY . .
+
+# Install the threat_analyzer package in development mode
+RUN pip install -e .
+
+# Set environment variables
+ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0 \
+    STREAMLIT_SERVER_PORT=8501 \
+    STREAMLIT_SERVER_HEADLESS=true \
+    STREAMLIT_SERVER_ENABLE_CORS=true \
+    STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=true \
+    STREAMLIT_SERVER_MAX_UPLOAD_SIZE=200 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+# Set permissions
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
 USER appuser
 
-EXPOSE 8501
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8501/_stcore/health || exit 1
 
-# Start Streamlit in development mode
-CMD ["streamlit", "run", \
-    "--server.address", "0.0.0.0", \
-    "--server.port", "8501", \
-    "--server.enableCORS", "true", \
-    "--server.headless", "false", \
-    "--server.maxUploadSize", "200", \
-    "--server.enableXsrfProtection", "true", \
-    "--server.enableWebsocketCompression", "true", \
-    "--server.fileWatcherType", "watchdog", \
-    "--server.showErrorDetails", "true", \
-    "--server.showTraceInConsole", "true", \
-    "--server.showDebugMessages", "true", \
-    "app.py"] 
+# Run the application
+CMD ["streamlit", "run", "--server.address", "0.0.0.0", "--server.port", "8501", "app.py", "--logger.level=debug"] 
