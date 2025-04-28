@@ -1,22 +1,49 @@
 import requests
 import logging
 import json
+import os
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from threat_analyzer.models.threat_models import IPAnalysis, ThreatData, ShodanData, IPAddress
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
+from threat_analyzer.utils.security import validate_input, rate_limit
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Load environment variables
+load_dotenv()
+
 class IPAnalyzer:
     def __init__(self, db: Session):
         self.db = db
-        self.virustotal_api_key = "YOUR_VIRUSTOTAL_API_KEY"  # Replace with actual API key
-        self.shodan_api_key = "YOUR_SHODAN_API_KEY"  # Replace with actual API key
-        self.alienvault_api_key = "YOUR_ALIENVAULT_API_KEY"  # Replace with actual API key
+        # Get API keys from environment variables
+        self.virustotal_api_key = os.getenv('VIRUSTOTAL_API_KEY')
+        self.shodan_api_key = os.getenv('SHODAN_API_KEY')
+        self.alienvault_api_key = os.getenv('ALIENVAULT_API_KEY')
+        
+        # Validate API keys
+        self._validate_api_keys()
 
+    def _validate_api_keys(self) -> None:
+        """Validate that all required API keys are present"""
+        missing_keys = []
+        if not self.virustotal_api_key:
+            missing_keys.append('VIRUSTOTAL_API_KEY')
+        if not self.shodan_api_key:
+            missing_keys.append('SHODAN_API_KEY')
+        if not self.alienvault_api_key:
+            missing_keys.append('ALIENVAULT_API_KEY')
+        
+        if missing_keys:
+            error_msg = f"Missing required API keys: {', '.join(missing_keys)}. Please set them in your .env file."
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+    @validate_input
+    @rate_limit(max_calls=60, time_window=60)  # 60 calls per minute
     def analyze_ip(self, ip_address: str) -> Dict[str, Any]:
         """Analyze an IP address using multiple threat intelligence sources"""
         try:
@@ -84,6 +111,7 @@ class IPAnalyzer:
             self.db.rollback()
             raise
 
+    @rate_limit(max_calls=4, time_window=60)  # 4 calls per minute (VirusTotal free tier limit)
     def _get_virustotal_data(self, ip_address: str) -> Optional[Dict[str, Any]]:
         """Get threat data from VirusTotal"""
         try:
@@ -96,6 +124,7 @@ class IPAnalyzer:
             logger.error(f"Error getting VirusTotal data: {str(e)}")
             return None
 
+    @rate_limit(max_calls=1, time_window=1)  # 1 call per second (Shodan free tier limit)
     def _get_shodan_data(self, ip_address: str) -> Optional[Dict[str, Any]]:
         """Get threat data from Shodan"""
         try:
@@ -108,6 +137,7 @@ class IPAnalyzer:
             logger.error(f"Error getting Shodan data: {str(e)}")
             return None
 
+    @rate_limit(max_calls=10, time_window=60)  # 10 calls per minute (AlienVault free tier limit)
     def _get_alienvault_data(self, ip_address: str) -> Optional[Dict[str, Any]]:
         """Get threat data from AlienVault"""
         try:
