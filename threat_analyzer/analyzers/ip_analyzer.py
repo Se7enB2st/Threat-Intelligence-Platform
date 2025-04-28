@@ -133,17 +133,35 @@ class IPAnalyzer:
                 is_malicious=analysis.is_malicious
             )
             self.db.add(ip_address)
-            self.db.commit()
+        else:
+            # Update existing record
+            ip_address.last_updated = analysis.last_updated
+            ip_address.overall_threat_score = analysis.overall_threat_score
+            ip_address.is_malicious = analysis.is_malicious
+        
+        self.db.commit()
 
         if source == "shodan":
-            threat_data = ShodanData(
-                ip_address_id=ip_address.id,
-                ports=json.dumps(data.get('ports', [])),
-                vulns=json.dumps(data.get('vulnerabilities', [])),
-                tags=json.dumps(data.get('tags', [])),
-                hostnames=json.dumps(data.get('hostnames', [])),
-                raw_data=json.dumps(data)
-            )
+            # Check if Shodan data already exists
+            existing_shodan = self.db.query(ShodanData).filter_by(ip_address_id=ip_address.id).first()
+            if existing_shodan:
+                # Update existing Shodan data
+                existing_shodan.ports = json.dumps(data.get('ports', []))
+                existing_shodan.vulns = json.dumps(data.get('vulnerabilities', []))
+                existing_shodan.tags = json.dumps(data.get('tags', []))
+                existing_shodan.hostnames = json.dumps(data.get('hostnames', []))
+                existing_shodan.raw_data = json.dumps(data)
+                threat_data = existing_shodan
+            else:
+                # Create new Shodan data
+                threat_data = ShodanData(
+                    ip_address_id=ip_address.id,
+                    ports=json.dumps(data.get('ports', [])),
+                    vulns=json.dumps(data.get('vulnerabilities', [])),
+                    tags=json.dumps(data.get('tags', [])),
+                    hostnames=json.dumps(data.get('hostnames', [])),
+                    raw_data=json.dumps(data)
+                )
         else:
             threat_data = ThreatData(
                 ip_analysis_id=analysis.id,
@@ -151,6 +169,7 @@ class IPAnalyzer:
                 data=data,
                 timestamp=datetime.utcnow()
             )
+        
         self.db.add(threat_data)
 
     def _calculate_threat_score(self, *data_sources: Optional[Dict[str, Any]]) -> float:
