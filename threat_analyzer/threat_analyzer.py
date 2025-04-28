@@ -36,10 +36,116 @@ class ThreatAnalyzer:
         """
         Get comprehensive details about an IP address from all sources
         """
+        # Check if IP exists in database
         ip_record = db.query(IPAddress).filter(IPAddress.ip_address == ip_address).first()
-        if not ip_record:
-            return {"error": "IP address not found in database"}
+        
+        # If IP doesn't exist or needs update, perform new analysis
+        if not ip_record or (datetime.utcnow() - ip_record.last_updated).days >= 1:
+            try:
+                # Initialize IPAnalyzer with database session
+                ip_analyzer = IPAnalyzer(db=db)
+                
+                # Get fresh analysis data
+                analysis_data = ip_analyzer.analyze_ip(ip_address)
+                
+                if not ip_record:
+                    # Create new IP record
+                    ip_record = IPAddress(
+                        ip_address=ip_address,
+                        first_seen=datetime.utcnow(),
+                        last_updated=datetime.utcnow(),
+                        overall_threat_score=analysis_data.get('overall_threat_score', 0),
+                        is_malicious=analysis_data.get('is_malicious', False)
+                    )
+                    db.add(ip_record)
+                    db.flush()  # Get the ID for relationships
+                else:
+                    # Update existing record
+                    ip_record.last_updated = datetime.utcnow()
+                    ip_record.overall_threat_score = analysis_data.get('overall_threat_score', ip_record.overall_threat_score)
+                    ip_record.is_malicious = analysis_data.get('is_malicious', ip_record.is_malicious)
 
+                # Update or create VirusTotal data
+                if 'virustotal' in analysis_data.get('threat_data', {}):
+                    vt_data = analysis_data['threat_data']['virustotal']
+                    if ip_record.virustotal_data:
+                        # Update existing VirusTotal data
+                        ip_record.virustotal_data.last_analysis_date = datetime.fromisoformat(vt_data.get('last_analysis_date')) if vt_data.get('last_analysis_date') else None
+                        ip_record.virustotal_data.malicious_count = vt_data.get('malicious_count', 0)
+                        ip_record.virustotal_data.suspicious_count = vt_data.get('suspicious_count', 0)
+                        ip_record.virustotal_data.harmless_count = vt_data.get('harmless_count', 0)
+                        ip_record.virustotal_data.raw_data = json.dumps(vt_data)
+                    else:
+                        # Create new VirusTotal data
+                        vt_record = VirusTotalData(
+                            ip_address_id=ip_record.id,
+                            last_analysis_date=datetime.fromisoformat(vt_data.get('last_analysis_date')) if vt_data.get('last_analysis_date') else None,
+                            malicious_count=vt_data.get('malicious_count', 0),
+                            suspicious_count=vt_data.get('suspicious_count', 0),
+                            harmless_count=vt_data.get('harmless_count', 0),
+                            raw_data=json.dumps(vt_data)
+                        )
+                        db.add(vt_record)
+
+                # Update or create Shodan data
+                if 'shodan' in analysis_data.get('threat_data', {}):
+                    shodan_data = analysis_data['threat_data']['shodan']
+                    if ip_record.shodan_data:
+                        # Update existing Shodan data
+                        ip_record.shodan_data.ports = json.dumps(shodan_data.get('ports', []))
+                        ip_record.shodan_data.vulns = json.dumps(shodan_data.get('vulnerabilities', []))
+                        ip_record.shodan_data.tags = json.dumps(shodan_data.get('tags', []))
+                        ip_record.shodan_data.hostnames = json.dumps(shodan_data.get('hostnames', []))
+                        ip_record.shodan_data.raw_data = json.dumps(shodan_data)
+                    else:
+                        # Create new Shodan data
+                        shodan_record = ShodanData(
+                            ip_address_id=ip_record.id,
+                            ports=json.dumps(shodan_data.get('ports', [])),
+                            vulns=json.dumps(shodan_data.get('vulnerabilities', [])),
+                            tags=json.dumps(shodan_data.get('tags', [])),
+                            hostnames=json.dumps(shodan_data.get('hostnames', [])),
+                            raw_data=json.dumps(shodan_data)
+                        )
+                        db.add(shodan_record)
+
+                # Update or create AlienVault data
+                if 'alienvault' in analysis_data.get('threat_data', {}):
+                    av_data = analysis_data['threat_data']['alienvault']
+                    if ip_record.alienvault_data:
+                        # Update existing AlienVault data
+                        ip_record.alienvault_data.pulse_count = av_data.get('pulse_count')
+                        ip_record.alienvault_data.reputation = av_data.get('reputation')
+                        ip_record.alienvault_data.activity_types = json.dumps(av_data.get('activity_types', []))
+                        ip_record.alienvault_data.raw_data = json.dumps(av_data)
+                    else:
+                        # Create new AlienVault data
+                        av_record = AlienVaultData(
+                            ip_address_id=ip_record.id,
+                            pulse_count=av_data.get('pulse_count'),
+                            reputation=av_data.get('reputation'),
+                            activity_types=json.dumps(av_data.get('activity_types', [])),
+                            raw_data=json.dumps(av_data)
+                        )
+                        db.add(av_record)
+
+                # Add scan history
+                scan_history = ScanHistory(
+                    ip_address_id=ip_record.id,
+                    scan_type='full',
+                    status='success',
+                    sources_checked=json.dumps(list(analysis_data.get('threat_data', {}).keys()))
+                )
+                db.add(scan_history)
+
+                # Commit all changes
+                db.commit()
+
+            except Exception as e:
+                db.rollback()
+                return {"error": f"Error analyzing IP: {str(e)}"}
+
+        # Return the results
         result = {
             "ip_address": ip_record.ip_address,
             "first_seen": ip_record.first_seen.isoformat(),
@@ -377,6 +483,136 @@ class ThreatAnalyzer:
         """Get recent scanning activities"""
         # Implementation for getting recent activities
         pass
+
+    @staticmethod
+    def get_historical_analysis(db: Session, start_date: datetime, end_date: datetime) -> Dict:
+        """
+        Get historical analysis data for a specified date range
+        """
+        try:
+            # Convert dates to datetime with time
+            start_datetime = datetime.combine(start_date, datetime.min.time())
+            end_datetime = datetime.combine(end_date, datetime.max.time())
+            
+            # Get trend data
+            trends = db.query(
+                func.date(ScanHistory.scan_date).label('date'),
+                func.avg(IPAddress.overall_threat_score).label('avg_score'),
+                func.count(IPAddress.id).label('ip_count')
+            ).join(
+                IPAddress,
+                ScanHistory.ip_address_id == IPAddress.id
+            ).filter(
+                ScanHistory.scan_date.between(start_datetime, end_datetime)
+            ).group_by(
+                func.date(ScanHistory.scan_date)
+            ).order_by(
+                text('date')
+            ).all()
+            
+            trend_data = [{
+                'date': trend.date,
+                'avg_score': float(trend.avg_score) if trend.avg_score else 0.0,
+                'ip_count': trend.ip_count
+            } for trend in trends]
+            
+            # Get top malicious IPs
+            malicious_ips = db.query(
+                IPAddress.ip_address,
+                IPAddress.overall_threat_score,
+                func.count(ScanHistory.id).label('scan_count'),
+                func.max(ScanHistory.scan_date).label('last_seen')
+            ).join(
+                ScanHistory,
+                IPAddress.id == ScanHistory.ip_address_id
+            ).filter(
+                and_(
+                    ScanHistory.scan_date.between(start_datetime, end_datetime),
+                    IPAddress.is_malicious == True
+                )
+            ).group_by(
+                IPAddress.id
+            ).order_by(
+                desc(IPAddress.overall_threat_score)
+            ).limit(10).all()
+            
+            malicious_ip_data = [{
+                'ip_address': ip.ip_address,
+                'threat_score': float(ip.overall_threat_score),
+                'scan_count': ip.scan_count,
+                'last_seen': ip.last_seen.isoformat()
+            } for ip in malicious_ips]
+            
+            # Analyze attack patterns
+            patterns = []
+            
+            # Check for port scan patterns
+            port_scan_ips = db.query(
+                IPAddress.ip_address,
+                ShodanData.ports
+            ).join(
+                ShodanData,
+                IPAddress.id == ShodanData.ip_address_id
+            ).filter(
+                and_(
+                    IPAddress.last_updated.between(start_datetime, end_datetime),
+                    ShodanData.ports.isnot(None)
+                )
+            ).all()
+            
+            port_counts = {}
+            for ip in port_scan_ips:
+                if ip.ports:
+                    ports = json.loads(ip.ports)
+                    for port in ports:
+                        port_counts[port] = port_counts.get(port, 0) + 1
+            
+            # Identify commonly targeted ports
+            common_ports = sorted(
+                [(port, count) for port, count in port_counts.items()],
+                key=lambda x: x[1],
+                reverse=True
+            )[:5]
+            
+            if common_ports:
+                patterns.append({
+                    'description': f"Common targeted ports: {', '.join(str(p[0]) for p in common_ports)}",
+                    'confidence': min(100, max(0, int(common_ports[0][1] / len(port_scan_ips) * 100)))
+                })
+            
+            # Check for common malicious activities
+            activity_patterns = db.query(
+                AlienVaultData.activity_types,
+                func.count(AlienVaultData.id).label('count')
+            ).join(
+                IPAddress,
+                AlienVaultData.ip_address_id == IPAddress.id
+            ).filter(
+                IPAddress.last_updated.between(start_datetime, end_datetime)
+            ).group_by(
+                AlienVaultData.activity_types
+            ).order_by(
+                desc('count')
+            ).limit(5).all()
+            
+            for pattern in activity_patterns:
+                if pattern.activity_types:
+                    activities = json.loads(pattern.activity_types)
+                    if activities:
+                        patterns.append({
+                            'description': f"Common malicious activity: {', '.join(activities)}",
+                            'confidence': min(100, max(0, int(pattern.count / len(activity_patterns) * 100)))
+                        })
+            
+            return {
+                'trends': trend_data,
+                'top_malicious_ips': malicious_ip_data,
+                'attack_patterns': patterns
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting historical analysis: {str(e)}")
+            return None
 
 # Example usage
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ from datetime import datetime
 import json
 from sqlalchemy.orm import Session
 from typing import Dict, Optional
-from database import get_db
+from threat_analyzer.database import get_db
 
 Base = declarative_base()
 
@@ -76,7 +76,6 @@ class ShodanData(Base):
 
     id = Column(Integer, primary_key=True)
     ip_address_id = Column(Integer, ForeignKey('ip_addresses.id'), nullable=False)
-    last_update = Column(DateTime)
     ports = Column(String)  # Changed from JSONString to String
     vulns = Column(String)  # Changed from JSONString to String
     tags = Column(String)  # Changed from JSONString to String
