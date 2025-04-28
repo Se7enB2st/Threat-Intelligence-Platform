@@ -10,6 +10,8 @@ The **Threat Intelligence Platform** is a security analysis tool that provides c
 - **Threat Scoring:** Overall threat score calculation
 - **Multi-Source Analysis:** Integration with VirusTotal, Shodan, and AlienVault OTX
 - **Historical Tracking:** First seen and last updated timestamps
+- **Input Validation:** Strict validation of IP addresses
+- **Rate Limiting:** Protection against API abuse
 
 ### Domain Analysis
 - **SSL/TLS Analysis:** Certificate validation and expiration monitoring
@@ -18,6 +20,8 @@ The **Threat Intelligence Platform** is a security analysis tool that provides c
 - **Security Headers:** Analysis of HTTP security headers
 - **VirusTotal Integration:** Domain reputation checking
 - **Security Scoring:** Overall security assessment
+- **Input Validation:** Strict validation of domain names
+- **Rate Limiting:** Protection against API abuse
 
 ### Dashboard Features
 - **Statistics Overview:**
@@ -46,6 +50,35 @@ The **Threat Intelligence Platform** is a security analysis tool that provides c
   - python-whois
   - dnspython
   - tldextract
+
+## Security Features
+
+### Input Validation & Sanitization
+- **IP Address Validation:** Strict format checking and validation
+- **Domain Name Validation:** Comprehensive domain format validation
+- **Input Sanitization:** Protection against injection attacks
+- **Error Handling:** Clear error messages for invalid inputs
+
+### Rate Limiting
+- **API Rate Limiting:** Protection against API abuse
+  - VirusTotal: 4 calls per minute
+  - Shodan: 1 call per second
+  - AlienVault: 10 calls per minute
+  - Overall IP analysis: 60 calls per minute
+- **Per-IP/Domain Limits:** Individual rate limiting for each identifier
+- **Time Window Tracking:** Sliding window for rate limit enforcement
+
+### Data Protection
+- **Environment Variables:** Secure storage of API keys and credentials
+- **Database Security:** Protected database connections
+- **Input Sanitization:** Prevention of injection attacks
+- **Error Handling:** Comprehensive error logging and handling
+
+### API Security
+- **API Key Management:** Secure storage in environment variables
+- **Rate Limiting:** Protection against API abuse
+- **Error Handling:** Proper handling of API errors
+- **Logging:** Comprehensive API call logging
 
 ## Prerequisites
 - Python 3.9+
@@ -77,6 +110,7 @@ POSTGRES_PORT=5432
 # API Keys
 VIRUSTOTAL_API_KEY=your_virustotal_api_key
 SHODAN_API_KEY=your_shodan_api_key
+ALIENVAULT_API_KEY=your_alienvault_api_key
 
 # Streamlit Configuration
 STREAMLIT_SERVER_ADDRESS=0.0.0.0
@@ -85,6 +119,10 @@ STREAMLIT_SERVER_HEADLESS=true
 STREAMLIT_SERVER_ENABLE_CORS=true
 STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=true
 STREAMLIT_SERVER_MAX_UPLOAD_SIZE=200
+
+# Security Configuration
+RATE_LIMIT_ENABLED=true
+MAX_REQUESTS_PER_MINUTE=60
 ```
 
 ### 3. Start the Application
@@ -112,6 +150,7 @@ http://localhost:8501
 - View threat intelligence from multiple sources
 - Get comprehensive threat scoring
 - Access historical data and timestamps
+- Input validation and rate limiting
 
 #### 3. Domain Analysis
 - Enter a domain (with protocol) for comprehensive analysis
@@ -121,24 +160,12 @@ http://localhost:8501
 - Analyze security headers
 - Get VirusTotal reputation score
 - View overall security assessment
-
-## Security Features
-
-### Data Protection
-- Secure database connections
-- Environment-based configuration
-- Input validation for IP addresses and domains
-- Error handling and logging
-
-### Best Practices
-- Environment-based configuration
-- Secure dependency management
-- Comprehensive error logging
-- Input validation
+- Input validation and rate limiting
 
 ## Monitoring and Logs
 - Application logs are available in the Docker containers
 - Database logs are accessible through PostgreSQL
+- Security logs track rate limiting and validation events
 - Web interface: `http://localhost:8501`
 
 ## Troubleshooting
@@ -153,17 +180,26 @@ http://localhost:8501
    - Verify API keys are properly configured
    - Check network connectivity
    - Review API rate limits
+   - Check rate limiting configuration
 
 3. **Application Errors**
    - Check Docker logs
    - Verify environment variables
    - Ensure all containers are running
+   - Review security logs
 
 4. **Domain Analysis Issues**
    - Ensure domain includes protocol (http:// or https://)
    - Check network connectivity for DNS queries
    - Verify SSL certificate access
    - Check WHOIS service availability
+   - Review rate limiting status
+
+5. **Rate Limiting Issues**
+   - Check rate limit configuration
+   - Verify time window settings
+   - Review API quotas
+   - Check security logs
 
 ## Support
 For issues and feature requests, please open an issue in the GitHub repository.
