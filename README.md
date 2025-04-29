@@ -162,6 +162,112 @@ http://localhost:8501
 - View overall security assessment
 - Input validation and rate limiting
 
+### Using the AI/ML Model
+
+The platform includes a powerful AI/ML model for threat prediction and analysis. Here's how to use it:
+
+#### 1. Initializing the Model
+```python
+from threat_analyzer.ml.threat_predictor import ThreatPredictor
+
+# Initialize with a pre-trained model
+predictor = ThreatPredictor(model_path="path/to/saved/model.joblib")
+
+# Or initialize a new model
+predictor = ThreatPredictor()
+```
+
+#### 2. Training the Model
+```python
+# Example training data
+training_data = [
+    {
+        'virustotal': {'malicious_count': 5, 'suspicious_count': 2},
+        'shodan': {'vulnerabilities': ['CVE-2021-1234'], 'ports': [80, 443]},
+        'alienvault': {'pulse_count': 3, 'reputation': -0.8},
+        'is_malicious': True
+    },
+    # Add more training examples
+]
+
+# Train the model
+predictor.train_model(training_data)
+
+# Save the trained model
+predictor.save_model("path/to/save/model.joblib")
+```
+
+#### 3. Making Predictions
+```python
+# Example threat data for prediction
+threat_data = {
+    'virustotal': {'malicious_count': 3, 'suspicious_count': 1},
+    'shodan': {'vulnerabilities': ['CVE-2021-5678'], 'ports': [22, 80]},
+    'alienvault': {'pulse_count': 2, 'reputation': -0.5},
+    'historical_threat_score': 0.6,
+    'first_seen': datetime.utcnow() - timedelta(days=30)
+}
+
+# Get prediction
+prediction = predictor.predict_threat(threat_data)
+print(f"Prediction: {prediction}")
+# Output example:
+# {
+#     'is_malicious': True,
+#     'malicious_probability': 0.85,
+#     'confidence': 0.92,
+#     'features_used': ['virustotal_malicious_count', ...]
+# }
+```
+
+#### 4. Analyzing Threat Patterns
+```python
+# Analyze patterns in threat data
+analysis = predictor.analyze_threat_patterns(threat_data_list)
+print(f"Analysis: {analysis}")
+# Output example:
+# {
+#     'total_samples': 1000,
+#     'malicious_percentage': 15.5,
+#     'average_threat_score': 0.45,
+#     'common_vulnerabilities': [
+#         {'vulnerability': 'CVE-2021-1234', 'count': 50},
+#         {'vulnerability': 'CVE-2021-5678', 'count': 30}
+#     ],
+#     'threat_trends': {
+#         'daily_threat_scores': [...],
+#         'trend_direction': 'increasing'
+#     }
+# }
+```
+
+#### 5. Model Features
+The model uses the following features for prediction:
+- VirusTotal data (malicious and suspicious counts)
+- Shodan data (vulnerabilities and open ports)
+- AlienVault data (pulse count and reputation)
+- Historical threat score
+- Days since first seen
+
+#### 6. Integration with Threat Analysis
+The model is automatically integrated with the main threat analysis pipeline. When analyzing an IP or domain, the platform:
+1. Collects data from all sources (VirusTotal, Shodan, AlienVault)
+2. Prepares the features for the model
+3. Makes a prediction
+4. Includes the prediction in the final analysis
+
+Example of integrated usage:
+```python
+from threat_analyzer.threat_aggregation import ThreatAggregator
+
+# Initialize the aggregator
+aggregator = ThreatAggregator(db_session)
+
+# Get analysis with AI prediction
+analysis = aggregator.get_ip_analysis("8.8.8.8")
+print(f"Analysis with AI prediction: {analysis}")
+```
+
 ## Monitoring and Logs
 - Application logs are available in the Docker containers
 - Database logs are accessible through PostgreSQL
