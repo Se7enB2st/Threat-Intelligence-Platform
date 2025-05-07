@@ -108,10 +108,14 @@ def validate_input(func: Callable):
     """
     @wraps(func)
     def wrapper(*args, **kwargs):
-        # Get the input parameter (either IP or domain)
-        input_param = args[0] if args else kwargs.get('ip_address') or kwargs.get('domain')
+        # Skip first argument if it's a method (self)
+        input_param = args[1] if len(args) > 1 else kwargs.get('ip_address') or kwargs.get('domain')
         if not input_param:
             raise ValueError("No input parameter provided")
+        
+        # Ensure input is a string
+        if not isinstance(input_param, str):
+            input_param = str(input_param)
         
         # Sanitize input
         sanitized_input = InputValidator.sanitize_input(input_param)
@@ -122,8 +126,8 @@ def validate_input(func: Callable):
                 raise ValueError(f"Invalid input format: {sanitized_input}")
         
         # Update args or kwargs with sanitized input
-        if args:
-            args = (sanitized_input,) + args[1:]
+        if len(args) > 1:
+            args = (args[0], sanitized_input) + args[2:]
         else:
             kwargs['ip_address' if 'ip_address' in kwargs else 'domain'] = sanitized_input
         
