@@ -8,6 +8,7 @@ from threat_analyzer.models.threat_models import IPAnalysis, ThreatData, ShodanD
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 from threat_analyzer.utils.security import validate_input, rate_limit
+from sqlalchemy.sql import text
 
 # Set up logging with more visible format
 logging.basicConfig(
@@ -59,100 +60,73 @@ class IPAnalyzer:
     def analyze_ip(self, ip_address: str) -> Dict[str, Any]:
         """Analyze an IP address using multiple threat intelligence sources"""
         try:
-            logger.debug(f"Starting analysis for IP: {ip_address}")
+            logger.info(f"Starting analysis for IP: {ip_address}")
             
-            # First, check if we have an IPAddress record
-            ip_record = self.db.query(IPAddress).filter_by(ip_address=ip_address).first()
-            if ip_record:
-                logger.debug(f"Found existing IP address record for: {ip_address}")
-                ip_record.last_updated = datetime.utcnow()
-            else:
-                logger.debug(f"Creating new IP address record for: {ip_address}")
+            # Get or create IP record
+            ip_record = self.db.query(IPAddress).filter_by(ip_address=ip_address).with_for_update().first()
+            if not ip_record:
+                logger.info(f"Creating new IP record for {ip_address}")
                 ip_record = IPAddress(
-                    ip_address=ip_address,
-                    first_seen=datetime.utcnow(),
-                    last_updated=datetime.utcnow(),
-                    overall_threat_score=0.0,
-                    is_malicious=False
-                )
-                self.db.add(ip_record)
-                self.db.flush()  # Get the ID without committing
-            
-            # Check if we already have analysis for this IP
-            existing_analysis = self.db.query(IPAnalysis).filter_by(ip_address=ip_address).first()
-            
-            if existing_analysis:
-                logger.debug(f"Found existing analysis for IP: {ip_address}")
-                # Update existing analysis
-                analysis = existing_analysis
-                analysis.last_updated = datetime.utcnow()
-            else:
-                logger.debug(f"Creating new analysis for IP: {ip_address}")
-                # Create new analysis
-                analysis = IPAnalysis(
                     ip_address=ip_address,
                     first_seen=datetime.utcnow(),
                     last_updated=datetime.utcnow()
                 )
+                self.db.add(ip_record)
+                self.db.flush()
+            else:
+                logger.info(f"Found existing IP record for {ip_address}")
+                ip_record.last_updated = datetime.utcnow()
+            
+            # Get or create analysis record
+            analysis = self.db.query(IPAnalysis).filter_by(ip_address_id=ip_record.id).with_for_update().first()
+            if not analysis:
+                logger.info(f"Creating new analysis record for {ip_address}")
+                analysis = IPAnalysis(
+                    ip_address_id=ip_record.id,
+                    first_seen=datetime.utcnow(),
+                    last_updated=datetime.utcnow()
+                )
                 self.db.add(analysis)
-                self.db.flush()  # Get the ID without committing
+                self.db.flush()
+            else:
+                logger.info(f"Found existing analysis record for {ip_address}")
+                analysis.last_updated = datetime.utcnow()
             
-            # Get threat data from various sources
-            logger.debug("Fetching threat data from sources...")
-            virustotal_data = self._get_virustotal_data(ip_address)
+            # Fetch threat data from various sources
+            threat_data = {}
+            
+            # VirusTotal analysis
+            vt_data = self._get_virustotal_data(ip_address)
+            if vt_data:
+                threat_data['virustotal'] = vt_data
+                self._store_threat_data(analysis, ip_record, "virustotal", vt_data)
+            
+            # Shodan analysis
             shodan_data = self._get_shodan_data(ip_address)
-            alienvault_data = self._get_alienvault_data(ip_address)
-            
-            # Log the data we received for debugging
-            logger.debug(f"VirusTotal data: {virustotal_data}")
-            logger.debug(f"Shodan data: {shodan_data}")
-            logger.debug(f"AlienVault data: {alienvault_data}")
-            
-            # Initialize threat data dictionary
-            threat_data = {
-                "virustotal": virustotal_data or {},
-                "shodan": shodan_data or {},
-                "alienvault": alienvault_data or {}
-            }
-            
-            # Store threat data
-            if virustotal_data:
-                self._store_threat_data(analysis, ip_record, "virustotal", virustotal_data)
             if shodan_data:
+                threat_data['shodan'] = shodan_data
                 self._store_threat_data(analysis, ip_record, "shodan", shodan_data)
+            
+            # AlienVault analysis
+            alienvault_data = self._get_alienvault_data(ip_address)
             if alienvault_data:
+                threat_data['alienvault'] = alienvault_data
                 self._store_threat_data(analysis, ip_record, "alienvault", alienvault_data)
             
             # Calculate overall threat score
-            try:
-                overall_threat_score = self._calculate_threat_score(
-                    virustotal_data, shodan_data, alienvault_data
-                )
-                is_malicious = overall_threat_score >= 0.7
-                logger.debug(f"Calculated threat score: {overall_threat_score}, is_malicious: {is_malicious}")
-            except Exception as e:
-                logger.error(f"Error calculating threat score: {str(e)}")
-                overall_threat_score = 0.0
-                is_malicious = False
+            overall_score = self._calculate_threat_score(threat_data)
+            is_malicious = overall_score >= 0.7
             
-            # Update analysis and IP record with calculated values
-            analysis.overall_threat_score = overall_threat_score
+            # Update both analysis and IP records
+            analysis.overall_threat_score = overall_score
             analysis.is_malicious = is_malicious
-            ip_record.overall_threat_score = overall_threat_score
+            ip_record.overall_threat_score = overall_score
             ip_record.is_malicious = is_malicious
-            ip_record.last_updated = datetime.utcnow()
             
-            try:
-                self.db.commit()
-                logger.debug("Successfully committed all changes to database")
-            except Exception as e:
-                logger.error(f"Error committing to database: {str(e)}")
-                self.db.rollback()
-                raise
-            
+            logger.info(f"Analysis completed for IP: {ip_address}")
             return {
-                "ip_address": analysis.ip_address,
-                "overall_threat_score": overall_threat_score,
+                "ip_address": ip_record.ip_address,
+                "overall_threat_score": overall_score,
                 "is_malicious": is_malicious,
                 "first_seen": analysis.first_seen,
                 "last_updated": analysis.last_updated,
@@ -161,7 +135,6 @@ class IPAnalyzer:
             
         except Exception as e:
             logger.error(f"Error analyzing IP {ip_address}: {str(e)}")
-            self.db.rollback()
             raise
 
     @rate_limit(max_calls=4, time_window=60)  # 4 calls per minute (VirusTotal free tier limit)
