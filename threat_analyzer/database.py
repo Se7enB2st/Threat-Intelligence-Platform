@@ -27,6 +27,7 @@ class IPAddress(Base):
     is_malicious = Column(Boolean, default=False)
 
     # Relationships
+    analysis = relationship("IPAnalysis", back_populates="ip_address", uselist=False)
     virustotal_data = relationship("VirusTotalData", back_populates="ip_address", uselist=False)
     shodan_data = relationship("ShodanData", back_populates="ip_address", uselist=False)
     alienvault_data = relationship("AlienVaultData", back_populates="ip_address", uselist=False)
@@ -86,11 +87,14 @@ class IPAnalysis(Base):
     __tablename__ = 'ip_analysis'
     
     id = Column(Integer, primary_key=True)
-    ip_address = Column(String, unique=True, nullable=False)
+    ip_address_id = Column(Integer, ForeignKey('ip_addresses.id'), unique=True, nullable=False)
     first_seen = Column(DateTime, default=datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     overall_threat_score = Column(Float, default=0.0)
     is_malicious = Column(Boolean, default=False)
+    
+    # Relationships
+    ip_address = relationship("IPAddress", back_populates="analysis")
     threat_data = relationship("ThreatData", back_populates="ip_analysis")
 
 class DomainAnalysis(Base):
@@ -139,7 +143,10 @@ def get_db():
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
             
+        # Drop all tables and recreate them
+        Base.metadata.drop_all(engine)
         Base.metadata.create_all(engine)
+        
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         return SessionLocal()
     except Exception as e:
