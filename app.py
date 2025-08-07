@@ -62,11 +62,33 @@ def is_valid_ip(ip_str):
 def is_valid_domain(domain_str):
     """Validate domain format"""
     try:
-        from urllib.parse import urlparse
-        result = urlparse(domain_str)
-        return all([result.scheme, result.netloc])
+        # Remove whitespace
+        domain_str = domain_str.strip()
+        
+        # If it already has a scheme, validate as URL
+        if domain_str.startswith(('http://', 'https://')):
+            from urllib.parse import urlparse
+            result = urlparse(domain_str)
+            return all([result.scheme, result.netloc])
+        
+        # Otherwise, validate as a domain name
+        import re
+        # Basic domain regex pattern
+        domain_pattern = r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$'
+        return bool(re.match(domain_pattern, domain_str))
     except:
         return False
+
+def normalize_domain_input(domain_str):
+    """Normalize domain input by adding https:// if no scheme is present"""
+    domain_str = domain_str.strip()
+    
+    # If it already has a scheme, return as is
+    if domain_str.startswith(('http://', 'https://')):
+        return domain_str
+    
+    # Otherwise, add https:// prefix
+    return f"https://{domain_str}"
 
 def display_ip_details(ip_details: dict):
     """Display detailed information about an IP address"""
@@ -485,18 +507,20 @@ def main():
 
     elif page == "Domain Analysis":
         st.header("Domain Analysis")
-        domain = st.text_input("Enter Domain (e.g., https://example.com)")
+        domain = st.text_input("Enter Domain (e.g., example.com or https://example.com)")
         
         if domain:
             if is_valid_domain(domain):
-                with st.spinner(f"Analyzing domain {domain}..."):
+                # Normalize the domain input
+                normalized_domain = normalize_domain_input(domain)
+                with st.spinner(f"Analyzing domain {normalized_domain}..."):
                     try:
-                        domain_details = st.session_state.domain_analyzer.analyze_domain(domain)
+                        domain_details = st.session_state.domain_analyzer.analyze_domain(normalized_domain)
                         display_domain_details(domain_details)
                     except Exception as e:
                         st.error(f"Error analyzing domain: {str(e)}")
             else:
-                st.error("Invalid domain format. Please include protocol (http:// or https://)")
+                st.error("Invalid domain format. Please enter a valid domain (e.g., example.com, google.com)")
 
 if __name__ == "__main__":
     main() 
