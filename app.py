@@ -6,6 +6,7 @@ import ipaddress
 from threat_analyzer.database import get_db
 from threat_analyzer.threat_analyzer import ThreatAnalyzer
 from threat_analyzer.analyzers.domain_analyzer import DomainAnalyzer
+from sqlalchemy import text
 
 # Add health check endpoint
 if st.query_params.get("health") == "check":
@@ -19,6 +20,36 @@ if 'analyzer' not in st.session_state:
     st.session_state.analyzer = ThreatAnalyzer()
 if 'domain_analyzer' not in st.session_state:
     st.session_state.domain_analyzer = DomainAnalyzer()
+
+def reset_database():
+    """Reset all database tables by deleting all data"""
+    try:
+        st.info("Starting database reset...")
+        db = st.session_state.db
+        
+        # Delete all data from all tables
+        tables = [
+            'threat_data',
+            'scan_history', 
+            'virustotal_data',
+            'shodan_data',
+            'alienvault_data',
+            'ip_analysis',
+            'domain_analysis',
+            'ip_addresses'
+        ]
+        
+        for table in tables:
+            st.info(f"Deleting data from {table}...")
+            result = db.execute(text(f"DELETE FROM {table}"))
+            st.info(f"Deleted {result.rowcount} rows from {table}")
+        
+        db.commit()
+        st.success("Database reset successfully! All data has been cleared.")
+        
+    except Exception as e:
+        st.error(f"Error resetting database: {str(e)}")
+        db.rollback()
 
 def is_valid_ip(ip_str):
     """Validate IP address format"""
@@ -260,6 +291,30 @@ def main():
         "Select a page",
         ["Dashboard", "IP Lookup", "Domain Analysis", "Historical Analysis"]
     )
+    
+    # Add reset button to sidebar
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Database Management")
+    
+    # Use session state to manage reset confirmation
+    if 'reset_confirmed' not in st.session_state:
+        st.session_state.reset_confirmed = False
+    
+    if st.sidebar.button("🗑️ Reset Database", type="secondary"):
+        st.session_state.reset_confirmed = True
+    
+    if st.session_state.reset_confirmed:
+        st.sidebar.warning("⚠️ This will delete ALL data!")
+        col1, col2 = st.sidebar.columns(2)
+        with col1:
+            if st.button("✅ Confirm", type="primary"):
+                reset_database()
+                st.session_state.reset_confirmed = False
+                st.rerun()
+        with col2:
+            if st.button("❌ Cancel"):
+                st.session_state.reset_confirmed = False
+                st.rerun()
 
     if page == "Dashboard":
         st.header("Threat Intelligence Dashboard")
