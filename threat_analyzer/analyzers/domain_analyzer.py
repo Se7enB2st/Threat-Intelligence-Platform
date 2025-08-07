@@ -138,11 +138,12 @@ class DomainAnalyzer:
         except Exception as e:
             return {"error": f"Header Check Error: {str(e)}"}
 
-    def analyze_domain(self, domain: str) -> Dict:
-        """Perform comprehensive domain analysis"""
+    def analyze_domain(self, domain: str, db_session=None) -> Dict:
+        """Perform comprehensive domain analysis and store results"""
         domain = self.clean_domain(domain)
         
-        return {
+        # Perform analysis
+        analysis_results = {
             "domain": domain,
             "ssl_info": self.get_ssl_info(domain),
             "dns_records": self.get_dns_records(domain),
@@ -150,4 +151,104 @@ class DomainAnalyzer:
             "virustotal_info": self.check_virustotal(domain),
             "security_headers": self.check_security_headers(domain),
             "analysis_timestamp": datetime.now().isoformat()
-        } 
+        }
+        
+        # Store in database if session is provided
+        if db_session:
+            try:
+                # Check if domain already exists
+                existing_domain = db_session.query(DomainAnalysis).filter_by(domain=domain).first()
+                
+                # Prepare data for storage (convert datetime objects to strings)
+                whois_data = self._prepare_whois_data(analysis_results.get('whois_info', {}))
+                dns_records = analysis_results.get('dns_records', {})
+                
+                if existing_domain:
+                    # Update existing record
+                    existing_domain.last_updated = datetime.utcnow()
+                    existing_domain.whois_data = whois_data
+                    existing_domain.dns_records = dns_records
+                    
+                    # Calculate threat score based on analysis
+                    threat_score = self._calculate_threat_score(analysis_results)
+                    existing_domain.overall_threat_score = threat_score
+                    existing_domain.is_malicious = threat_score > 50.0
+                    
+                    db_session.commit()
+                else:
+                    # Create new record
+                    threat_score = self._calculate_threat_score(analysis_results)
+                    new_domain = DomainAnalysis(
+                        domain=domain,
+                        first_seen=datetime.utcnow(),
+                        last_updated=datetime.utcnow(),
+                        overall_threat_score=threat_score,
+                        is_malicious=threat_score > 50.0,
+                        whois_data=whois_data,
+                        dns_records=dns_records
+                    )
+                    db_session.add(new_domain)
+                    db_session.commit()
+                    
+            except Exception as e:
+                print(f"Error storing domain analysis: {str(e)}")
+                db_session.rollback()
+        
+        return analysis_results
+    
+    def _prepare_whois_data(self, whois_info: Dict) -> Dict:
+        """Convert datetime objects in WHOIS data to strings for JSON storage"""
+        if 'error' in whois_info:
+            return whois_info
+        
+        prepared_data = {}
+        for key, value in whois_info.items():
+            if isinstance(value, datetime):
+                prepared_data[key] = value.isoformat()
+            elif isinstance(value, list):
+                # Handle lists that might contain datetime objects
+                prepared_data[key] = [
+                    item.isoformat() if isinstance(item, datetime) else item 
+                    for item in value
+                ]
+            else:
+                prepared_data[key] = value
+        
+        return prepared_data
+    
+    def _calculate_threat_score(self, analysis_results: Dict) -> float:
+        """Calculate threat score based on analysis results"""
+        score = 0.0
+        
+        # Check VirusTotal reputation
+        vt_info = analysis_results.get('virustotal_info', {})
+        if 'error' not in vt_info:
+            reputation = vt_info.get('reputation', 0)
+            if reputation < 0:
+                score += abs(reputation) * 10  # Negative reputation increases threat score
+            elif reputation > 0:
+                score -= reputation * 5  # Positive reputation decreases threat score
+        
+        # Check security headers
+        security_headers = analysis_results.get('security_headers', {})
+        if 'error' not in security_headers:
+            security_score = security_headers.get('security_score', 0)
+            if security_score < 50:
+                score += (100 - security_score) * 0.5  # Poor security increases threat score
+        
+        # Check SSL certificate
+        ssl_info = analysis_results.get('ssl_info', {})
+        if 'error' not in ssl_info:
+            if ssl_info.get('is_expired', False):
+                score += 20  # Expired certificate
+        
+        # Check DNS records for suspicious patterns
+        dns_records = analysis_results.get('dns_records', {})
+        if 'error' not in dns_records:
+            # Check for suspicious TXT records
+            txt_records = dns_records.get('TXT', [])
+            for record in txt_records:
+                if any(suspicious in record.lower() for suspicious in ['spam', 'malware', 'phishing']):
+                    score += 15
+        
+        return max(0.0, min(100.0, score))  # Clamp between 0 and 100 

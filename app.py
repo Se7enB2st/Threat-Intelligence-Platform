@@ -602,12 +602,15 @@ def main():
                 normalized_domain = normalize_domain_input(domain)
                 with st.spinner(f"Analyzing domain {normalized_domain}..."):
                     try:
-                        domain_details = st.session_state.domain_analyzer.analyze_domain(normalized_domain)
+                        domain_details = st.session_state.domain_analyzer.analyze_domain(
+                            normalized_domain, 
+                            st.session_state.db
+                        )
                         display_domain_details(domain_details)
                     except Exception as e:
                         st.error(f"Error analyzing domain: {str(e)}")
             else:
-                st.error("Invalid domain format. Please enter a valid domain (e.g., example.com, google.com)")
+                st.error("Invalid domain format")
 
 if __name__ == "__main__":
     main() 
