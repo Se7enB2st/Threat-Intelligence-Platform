@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, ForeignKey, JSON, text
+from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, ForeignKey, JSON, text, inspect
 from sqlalchemy.orm import sessionmaker, relationship, DeclarativeBase
 from datetime import datetime
 import os
@@ -143,9 +143,15 @@ def get_db():
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
             
-        # Drop all tables and recreate them
-        Base.metadata.drop_all(engine)
-        Base.metadata.create_all(engine)
+        # Check if tables exist, create them only if they don't
+        inspector = inspect(engine)
+        existing_tables = inspector.get_table_names()
+        
+        if not existing_tables:
+            logger.info("No tables found, creating database schema...")
+            Base.metadata.create_all(engine)
+        else:
+            logger.info(f"Found existing tables: {existing_tables}")
         
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         return SessionLocal()
