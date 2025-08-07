@@ -33,10 +33,7 @@ class ThreatAnalyzer:
 
     @staticmethod
     def get_ip_details(db: Session, ip_address: str) -> Dict:
-        """
-        Get comprehensive details about an IP address from all sources
-        """
-        # Check if IP exists in database
+        """Get detailed information about an IP address"""
         ip_record = db.query(IPAddress).filter(IPAddress.ip_address == ip_address).first()
         
         # If IP doesn't exist or needs update, perform new analysis
@@ -48,23 +45,20 @@ class ThreatAnalyzer:
                 # Get fresh analysis data
                 analysis_data = ip_analyzer.analyze_ip(ip_address)
                 
+                # The IPAnalyzer.analyze_ip method now handles IP record creation
+                # So we just need to get the updated record
+                ip_record = db.query(IPAddress).filter(IPAddress.ip_address == ip_address).first()
+                
                 if not ip_record:
-                    # Create new IP record
-                    ip_record = IPAddress(
-                        ip_address=ip_address,
-                        first_seen=datetime.utcnow(),
-                        last_updated=datetime.utcnow(),
-                        overall_threat_score=analysis_data.get('overall_threat_score', 0),
-                        is_malicious=analysis_data.get('is_malicious', False)
-                    )
-                    db.add(ip_record)
-                    db.flush()  # Get the ID for relationships
-                else:
-                    # Update existing record
-                    ip_record.last_updated = datetime.utcnow()
-                    ip_record.overall_threat_score = analysis_data.get('overall_threat_score', ip_record.overall_threat_score)
-                    ip_record.is_malicious = analysis_data.get('is_malicious', ip_record.is_malicious)
-
+                    # This shouldn't happen, but just in case
+                    logging.error(f"IP record not found after analysis for {ip_address}")
+                    return {"error": "Failed to create IP record"}
+                
+                # Update the record with analysis results
+                ip_record.last_updated = datetime.utcnow()
+                ip_record.overall_threat_score = analysis_data.get('overall_threat_score', ip_record.overall_threat_score)
+                ip_record.is_malicious = analysis_data.get('is_malicious', ip_record.is_malicious)
+                
                 # Update or create VirusTotal data
                 if 'virustotal' in analysis_data.get('threat_data', {}):
                     vt_data = analysis_data['threat_data']['virustotal']
@@ -611,7 +605,7 @@ class ThreatAnalyzer:
             }
             
         except Exception as e:
-            logger.error(f"Error getting historical analysis: {str(e)}")
+            self.logger.error(f"Error getting historical analysis: {str(e)}")
             return None
 
 # Example usage

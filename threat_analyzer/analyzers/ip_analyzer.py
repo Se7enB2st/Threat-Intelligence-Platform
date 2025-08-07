@@ -62,35 +62,43 @@ class IPAnalyzer:
         try:
             logger.info(f"Starting analysis for IP: {ip_address}")
             
-            # Get or create IP record
-            ip_record = self.db.query(IPAddress).filter_by(ip_address=ip_address).with_for_update().first()
-            if not ip_record:
+            # Try to get existing IP record first
+            ip_record = self.db.query(IPAddress).filter_by(ip_address=ip_address).first()
+            
+            if ip_record:
+                logger.info(f"Found existing IP record for {ip_address}: ID={ip_record.id}")
+                ip_record.last_updated = datetime.utcnow()
+            else:
                 logger.info(f"Creating new IP record for {ip_address}")
                 ip_record = IPAddress(
                     ip_address=ip_address,
                     first_seen=datetime.utcnow(),
-                    last_updated=datetime.utcnow()
+                    last_updated=datetime.utcnow(),
+                    overall_threat_score=0.0,
+                    is_malicious=False
                 )
                 self.db.add(ip_record)
                 self.db.flush()
-            else:
-                logger.info(f"Found existing IP record for {ip_address}")
-                ip_record.last_updated = datetime.utcnow()
+                logger.info(f"Created IP record for {ip_address}: ID={ip_record.id}")
             
-            # Get or create analysis record
-            analysis = self.db.query(IPAnalysis).filter_by(ip_address_id=ip_record.id).with_for_update().first()
-            if not analysis:
+            # Try to get existing analysis record
+            analysis = self.db.query(IPAnalysis).filter_by(ip_address_id=ip_record.id).first()
+            
+            if analysis:
+                logger.info(f"Found existing analysis record for {ip_address}: ID={analysis.id}")
+                analysis.last_updated = datetime.utcnow()
+            else:
                 logger.info(f"Creating new analysis record for {ip_address}")
                 analysis = IPAnalysis(
                     ip_address_id=ip_record.id,
                     first_seen=datetime.utcnow(),
-                    last_updated=datetime.utcnow()
+                    last_updated=datetime.utcnow(),
+                    overall_threat_score=0.0,
+                    is_malicious=False
                 )
                 self.db.add(analysis)
                 self.db.flush()
-            else:
-                logger.info(f"Found existing analysis record for {ip_address}")
-                analysis.last_updated = datetime.utcnow()
+                logger.info(f"Created analysis record for {ip_address}: ID={analysis.id}")
             
             # Fetch threat data from various sources
             threat_data = {}
@@ -213,47 +221,26 @@ class IPAnalyzer:
         logger.debug(f"Data content: {data}")
         
         try:
-            if source == "shodan":
-                # Check if Shodan data already exists
-                existing_shodan = self.db.query(ShodanData).filter_by(ip_address_id=ip_record.id).first()
-                if existing_shodan:
-                    logger.debug("Updating existing Shodan data")
-                    # Update existing Shodan data
-                    existing_shodan.ports = json.dumps(data.get('ports', []))
-                    existing_shodan.vulns = json.dumps(data.get('vulnerabilities', []))
-                    existing_shodan.tags = json.dumps(data.get('tags', []))
-                    existing_shodan.hostnames = json.dumps(data.get('hostnames', []))
-                    existing_shodan.raw_data = json.dumps(data)
-                    threat_data = existing_shodan
-                else:
-                    logger.debug("Creating new Shodan data")
-                    # Create new Shodan data
-                    threat_data = ShodanData(
-                        ip_address_id=ip_record.id,
-                        ports=json.dumps(data.get('ports', [])),
-                        vulns=json.dumps(data.get('vulnerabilities', [])),
-                        tags=json.dumps(data.get('tags', [])),
-                        hostnames=json.dumps(data.get('hostnames', [])),
-                        raw_data=json.dumps(data)
-                    )
-            else:
-                # Convert data to JSON string before storing
-                try:
-                    json_data = json.dumps(data)
-                    logger.debug(f"Converted data to JSON: {json_data}")
-                    threat_data = ThreatData(
-                        ip_analysis_id=analysis.id,
-                        source=source,
-                        data=json_data,  # Store as JSON string
-                        timestamp=datetime.utcnow()
-                    )
-                except Exception as e:
-                    logger.error(f"Error converting data to JSON: {str(e)}")
-                    logger.error(f"Data that failed to convert: {data}")
-                    raise
-            
-            self.db.add(threat_data)
-            logger.debug(f"Successfully added threat data for source: {source}")
+            # Convert data to JSON string before storing
+            try:
+                json_data = json.dumps(data)
+                logger.debug(f"Converted data to JSON: {json_data}")
+                
+                # Simply add new threat data record
+                threat_data = ThreatData(
+                    ip_analysis_id=analysis.id,
+                    source=source,
+                    data=json_data,
+                    timestamp=datetime.utcnow()
+                )
+                
+                self.db.add(threat_data)
+                logger.debug(f"Successfully stored threat data for source: {source}")
+                
+            except Exception as e:
+                logger.error(f"Error converting data to JSON: {str(e)}")
+                logger.error(f"Data that failed to convert: {data}")
+                raise
             
         except Exception as e:
             logger.error(f"Error storing threat data: {str(e)}")
