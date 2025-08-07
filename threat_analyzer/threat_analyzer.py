@@ -16,7 +16,8 @@ from .models.threat_models import (
     VirusTotalData, 
     ShodanData, 
     AlienVaultData, 
-    ScanHistory
+    ScanHistory,
+    DomainAnalysis
 )
 from threat_analyzer.database import get_db
 from threat_analyzer.analyzers.domain_analyzer import DomainAnalyzer
@@ -537,6 +538,69 @@ class ThreatAnalyzer:
                 'last_seen': ip.last_seen.isoformat()
             } for ip in malicious_ips]
             
+            # Get domain analysis data
+            malicious_domains = db.query(
+                DomainAnalysis.domain,
+                DomainAnalysis.overall_threat_score,
+                DomainAnalysis.last_updated
+            ).filter(
+                and_(
+                    DomainAnalysis.last_updated.between(start_datetime, end_datetime),
+                    DomainAnalysis.is_malicious == True
+                )
+            ).order_by(
+                desc(DomainAnalysis.overall_threat_score)
+            ).limit(10).all()
+            
+            malicious_domain_data = [{
+                'domain': domain.domain,
+                'threat_score': float(domain.overall_threat_score),
+                'last_updated': domain.last_updated.isoformat()
+            } for domain in malicious_domains]
+            
+            # Get domain trend data
+            domain_trends = db.query(
+                func.date(DomainAnalysis.last_updated).label('date'),
+                func.avg(DomainAnalysis.overall_threat_score).label('avg_score'),
+                func.count(DomainAnalysis.id).label('domain_count')
+            ).filter(
+                DomainAnalysis.last_updated.between(start_datetime, end_datetime)
+            ).group_by(
+                func.date(DomainAnalysis.last_updated)
+            ).order_by(
+                text('date')
+            ).all()
+            
+            domain_trend_data = [{
+                'date': trend.date,
+                'avg_score': float(trend.avg_score) if trend.avg_score else 0.0,
+                'domain_count': trend.domain_count
+            } for trend in domain_trends]
+            
+            # Get total counts for the date range
+            total_ips = db.query(func.count(IPAddress.id)).filter(
+                IPAddress.last_updated.between(start_datetime, end_datetime)
+            ).scalar()
+            
+            total_domains = db.query(func.count(DomainAnalysis.id)).filter(
+                DomainAnalysis.last_updated.between(start_datetime, end_datetime)
+            ).scalar()
+            
+            # Get malicious counts
+            malicious_ip_count = db.query(func.count(IPAddress.id)).filter(
+                and_(
+                    IPAddress.last_updated.between(start_datetime, end_datetime),
+                    IPAddress.is_malicious == True
+                )
+            ).scalar()
+            
+            malicious_domain_count = db.query(func.count(DomainAnalysis.id)).filter(
+                and_(
+                    DomainAnalysis.last_updated.between(start_datetime, end_datetime),
+                    DomainAnalysis.is_malicious == True
+                )
+            ).scalar()
+            
             # Analyze attack patterns
             patterns = []
             
@@ -601,7 +665,13 @@ class ThreatAnalyzer:
             return {
                 'trends': trend_data,
                 'top_malicious_ips': malicious_ip_data,
-                'attack_patterns': patterns
+                'top_malicious_domains': malicious_domain_data,
+                'domain_trends': domain_trend_data,
+                'attack_patterns': patterns,
+                'total_ips_analyzed': total_ips,
+                'total_domains_analyzed': total_domains,
+                'malicious_ips_count': malicious_ip_count,
+                'malicious_domains_count': malicious_domain_count
             }
             
         except Exception as e:
