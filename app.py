@@ -569,6 +569,79 @@ def main():
                         st.info("No domain trend data available")
                 else:
                     st.info("No domain trend data available for the selected date range")
+                
+                # Display threat score distribution
+                st.subheader("Threat Score Distribution")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write("**IP Threat Score Distribution**")
+                    if historical_data.get('ip_score_distribution'):
+                        ip_dist_df = pd.DataFrame(historical_data['ip_score_distribution'])
+                        if not ip_dist_df.empty:
+                            # Create bar chart for IP score distribution
+                            fig = px.bar(
+                                ip_dist_df,
+                                x='range',
+                                y='count',
+                                title='IP Threat Score Distribution',
+                                labels={'range': 'Threat Score Range', 'count': 'Number of IPs'},
+                                color='count',
+                                color_continuous_scale='viridis'
+                            )
+                            st.plotly_chart(fig)
+                            
+                            # Display table with percentages
+                            st.write("**Detailed Breakdown:**")
+                            ip_dist_df['percentage'] = ip_dist_df['percentage'].astype(str) + '%'
+                            st.dataframe(
+                                ip_dist_df,
+                                column_config={
+                                    "range": "Score Range",
+                                    "count": "Count",
+                                    "percentage": "Percentage"
+                                },
+                                use_container_width=True
+                            )
+                        else:
+                            st.info("No IP score distribution data available")
+                    else:
+                        st.info("No IP score distribution data available")
+                
+                with col2:
+                    st.write("**Domain Threat Score Distribution**")
+                    if historical_data.get('domain_score_distribution'):
+                        domain_dist_df = pd.DataFrame(historical_data['domain_score_distribution'])
+                        if not domain_dist_df.empty:
+                            # Create bar chart for domain score distribution
+                            fig = px.bar(
+                                domain_dist_df,
+                                x='range',
+                                y='count',
+                                title='Domain Threat Score Distribution',
+                                labels={'range': 'Threat Score Range', 'count': 'Number of Domains'},
+                                color='count',
+                                color_continuous_scale='plasma'
+                            )
+                            st.plotly_chart(fig)
+                            
+                            # Display table with percentages
+                            st.write("**Detailed Breakdown:**")
+                            domain_dist_df['percentage'] = domain_dist_df['percentage'].astype(str) + '%'
+                            st.dataframe(
+                                domain_dist_df,
+                                column_config={
+                                    "range": "Score Range",
+                                    "count": "Count",
+                                    "percentage": "Percentage"
+                                },
+                                use_container_width=True
+                            )
+                        else:
+                            st.info("No domain score distribution data available")
+                    else:
+                        st.info("No domain score distribution data available")
                     
         except Exception as e:
             st.error(f"Error loading historical analysis: {str(e)}")
