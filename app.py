@@ -432,6 +432,34 @@ def main():
             )
             
             if historical_data:
+                # Display summary statistics
+                st.subheader("Analysis Summary")
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric(
+                        "Total IPs Analyzed", 
+                        historical_data.get('total_ips_analyzed', 0)
+                    )
+                
+                with col2:
+                    st.metric(
+                        "Total Domains Analyzed", 
+                        historical_data.get('total_domains_analyzed', 0)
+                    )
+                
+                with col3:
+                    st.metric(
+                        "Malicious IPs", 
+                        historical_data.get('malicious_ips_count', 0)
+                    )
+                
+                with col4:
+                    st.metric(
+                        "Malicious Domains", 
+                        historical_data.get('malicious_domains_count', 0)
+                    )
+                
                 # Display trends
                 st.subheader("Threat Score Trends")
                 if historical_data['trends']:
