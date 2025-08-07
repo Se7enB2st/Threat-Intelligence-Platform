@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func, and_, text
+from sqlalchemy import desc, func, and_, text, case
 from datetime import datetime, timedelta
 import json
 from typing import List, Dict, Optional, Tuple
@@ -601,6 +601,56 @@ class ThreatAnalyzer:
                 )
             ).scalar()
             
+            # Get threat score distribution for IPs
+            ip_score_distribution = db.query(
+                func.count(IPAddress.id).label('count'),
+                case(
+                    (IPAddress.overall_threat_score < 20, 'Low (0-19)'),
+                    (IPAddress.overall_threat_score < 40, 'Medium-Low (20-39)'),
+                    (IPAddress.overall_threat_score < 60, 'Medium (40-59)'),
+                    (IPAddress.overall_threat_score < 80, 'Medium-High (60-79)'),
+                    (IPAddress.overall_threat_score < 100, 'High (80-99)'),
+                    else_='Critical (100)'
+                ).label('score_range')
+            ).filter(
+                IPAddress.last_updated.between(start_datetime, end_datetime)
+            ).group_by(
+                text('score_range')
+            ).order_by(
+                text('score_range')
+            ).all()
+            
+            ip_score_distribution_data = [{
+                'range': item.score_range,
+                'count': item.count,
+                'percentage': round((item.count / total_ips * 100) if total_ips > 0 else 0, 2)
+            } for item in ip_score_distribution]
+            
+            # Get threat score distribution for domains
+            domain_score_distribution = db.query(
+                func.count(DomainAnalysis.id).label('count'),
+                case(
+                    (DomainAnalysis.overall_threat_score < 20, 'Low (0-19)'),
+                    (DomainAnalysis.overall_threat_score < 40, 'Medium-Low (20-39)'),
+                    (DomainAnalysis.overall_threat_score < 60, 'Medium (40-59)'),
+                    (DomainAnalysis.overall_threat_score < 80, 'Medium-High (60-79)'),
+                    (DomainAnalysis.overall_threat_score < 100, 'High (80-99)'),
+                    else_='Critical (100)'
+                ).label('score_range')
+            ).filter(
+                DomainAnalysis.last_updated.between(start_datetime, end_datetime)
+            ).group_by(
+                text('score_range')
+            ).order_by(
+                text('score_range')
+            ).all()
+            
+            domain_score_distribution_data = [{
+                'range': item.score_range,
+                'count': item.count,
+                'percentage': round((item.count / total_domains * 100) if total_domains > 0 else 0, 2)
+            } for item in domain_score_distribution]
+            
             # Analyze attack patterns
             patterns = []
             
@@ -671,11 +721,13 @@ class ThreatAnalyzer:
                 'total_ips_analyzed': total_ips,
                 'total_domains_analyzed': total_domains,
                 'malicious_ips_count': malicious_ip_count,
-                'malicious_domains_count': malicious_domain_count
+                'malicious_domains_count': malicious_domain_count,
+                'ip_score_distribution': ip_score_distribution_data,
+                'domain_score_distribution': domain_score_distribution_data
             }
             
         except Exception as e:
-            self.logger.error(f"Error getting historical analysis: {str(e)}")
+            logging.error(f"Error getting historical analysis: {str(e)}")
             return None
 
 # Example usage
