@@ -482,6 +482,65 @@ def main():
                         st.write(f"- {pattern['description']} (Confidence: {pattern['confidence']}%)")
                 else:
                     st.info("No attack patterns detected in the selected date range")
+                
+                # Display domain analysis data
+                st.subheader("Domain Analysis")
+                
+                # Display top malicious domains
+                st.write("**Top Malicious Domains**")
+                if historical_data.get('top_malicious_domains'):
+                    malicious_domains = pd.DataFrame(historical_data['top_malicious_domains'])
+                    # Format the columns for better display
+                    malicious_domains['threat_score'] = malicious_domains['threat_score'].round(2)
+                    malicious_domains['last_updated'] = pd.to_datetime(malicious_domains['last_updated']).dt.strftime('%Y-%m-%d %H:%M:%S')
+                    st.dataframe(
+                        malicious_domains,
+                        column_config={
+                            "domain": "Domain",
+                            "threat_score": "Threat Score",
+                            "last_updated": "Last Updated"
+                        },
+                        use_container_width=True
+                    )
+                else:
+                    st.info("No malicious domains found in the selected date range")
+                
+                # Display domain trends
+                st.write("**Domain Threat Score Trends**")
+                if historical_data.get('domain_trends'):
+                    domain_trend_df = pd.DataFrame(historical_data['domain_trends'])
+                    if not domain_trend_df.empty:
+                        # Ensure date column is datetime
+                        domain_trend_df['date'] = pd.to_datetime(domain_trend_df['date'])
+                        
+                        # Create line chart for domain trends
+                        fig = px.line(
+                            domain_trend_df,
+                            x='date',
+                            y='avg_score',
+                            title='Domain Threat Score Trends',
+                            labels={
+                                'date': 'Date',
+                                'avg_score': 'Average Domain Threat Score'
+                            }
+                        )
+                        
+                        # Add hover data
+                        fig.update_traces(
+                            hovertemplate="<br>".join([
+                                "Date: %{x}",
+                                "Average Score: %{y:.2f}",
+                                "Domains Analyzed: %{customdata[0]}",
+                                "<extra></extra>"
+                            ]),
+                            customdata=domain_trend_df[['domain_count']].values
+                        )
+                        
+                        st.plotly_chart(fig)
+                    else:
+                        st.info("No domain trend data available")
+                else:
+                    st.info("No domain trend data available for the selected date range")
                     
         except Exception as e:
             st.error(f"Error loading historical analysis: {str(e)}")
