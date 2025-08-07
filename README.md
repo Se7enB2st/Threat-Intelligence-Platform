@@ -1,41 +1,93 @@
 # Threat Intelligence Platform
 
 ## Overview
-The **Threat Intelligence Platform** is a security analysis tool that provides comprehensive threat intelligence for IP addresses and domains. It integrates with multiple security data sources to provide detailed analysis and threat scoring.
+The **Threat Intelligence Platform** is a comprehensive security analysis tool that provides detailed threat intelligence for IP addresses and domains. It integrates with multiple security data sources to provide real-time analysis, threat scoring, and historical tracking with persistent data storage.
 
 ## Core Features
 
 ### IP Analysis
-- **IP Lookup:** Detailed analysis of IP addresses
-- **Threat Scoring:** Overall threat score calculation
+- **IP Lookup:** Detailed analysis of IP addresses with persistent storage
+- **Threat Scoring:** Overall threat score calculation based on multiple sources
 - **Multi-Source Analysis:** Integration with VirusTotal, Shodan, and AlienVault OTX
-- **Historical Tracking:** First seen and last updated timestamps
+- **Historical Tracking:** First seen and last updated timestamps with data persistence
 - **Input Validation:** Strict validation of IP addresses
 - **Rate Limiting:** Protection against API abuse
+- **Data Persistence:** All analysis data is stored and persists between container restarts
 
 ### Domain Analysis
+- **Flexible Input:** Accept domains with or without protocols (e.g., `example.com` or `https://example.com`)
 - **SSL/TLS Analysis:** Certificate validation and expiration monitoring
 - **DNS Analysis:** Comprehensive DNS record verification
 - **WHOIS Information:** Domain registration and ownership details
 - **Security Headers:** Analysis of HTTP security headers
 - **VirusTotal Integration:** Domain reputation checking
-- **Security Scoring:** Overall security assessment
+- **Security Scoring:** Overall security assessment with threat score calculation
 - **Input Validation:** Strict validation of domain names
 - **Rate Limiting:** Protection against API abuse
+- **Data Persistence:** Domain analysis results are stored and tracked
+
+### Historical Analysis
+- **Comprehensive Statistics:** Track total IPs and domains analyzed
+- **Malicious Counts:** Monitor malicious IPs and domains
+- **Trend Analysis:** View threat score trends over time
+- **Attack Patterns:** Identify common attack patterns and vulnerabilities
+- **Date Range Filtering:** Analyze data for specific time periods
+- **Domain Trends:** Track domain threat score trends
+- **Top Malicious Lists:** View most threatening IPs and domains
+
+### Database Management
+- **Reset Functionality:** Complete database reset with confirmation
+- **Data Persistence:** All data survives container restarts and rebuilds
+- **Smart Schema Management:** Automatic table creation without data loss
+- **Volume Storage:** Persistent PostgreSQL data storage
 
 ### Dashboard Features
 - **Statistics Overview:**
   - Total IPs tracked
+  - Total domains analyzed
   - Average threat score
   - Malicious IPs count
-  - Malicious IP percentage
+  - Malicious domains count
+  - Malicious percentage calculations
 - **Real-time Analysis:** Immediate threat assessment
 - **Detailed Reports:** Comprehensive threat intelligence data
+- **Historical Insights:** Trend analysis and pattern recognition
+
+## Recent Improvements
+
+### Data Persistence (Fixed)
+- **Issue Resolved:** Data was being wiped on container restarts
+- **Solution:** Implemented smart database initialization that only creates tables if they don't exist
+- **Result:** All analysis data now persists between `docker-compose down` and `docker-compose up --build`
+
+### Domain Tracking Enhancement
+- **Issue Resolved:** Historical analysis wasn't counting domain analysis
+- **Solution:** Added database storage to domain analyzer with JSON serialization fixes
+- **Result:** Domain analysis is now properly tracked in historical statistics
+
+### Reset Database Feature
+- **New Feature:** Added comprehensive database reset functionality
+- **Safety Features:** Two-step confirmation process
+- **Scope:** Clears all data from all tables (IPs, domains, threat data, etc.)
+- **Location:** Available in sidebar under "Database Management"
+
+### Enhanced Domain Input
+- **Improvement:** Users can now enter domains without requiring `http://` or `https://`
+- **Auto-Normalization:** Automatically adds `https://` if no protocol is specified
+- **Flexible Validation:** Accepts multiple domain formats
+- **Better UX:** More user-friendly domain input experience
+
+### Historical Analysis Enhancement
+- **New Metrics:** Added total counts for analyzed IPs and domains
+- **Domain Integration:** Domain analysis now included in historical data
+- **Enhanced Statistics:** More comprehensive analysis summary
+- **Better Visualization:** Improved charts and data presentation
 
 ## Tech Stack
 - **Backend:** Python 3.9+
 - **Web Framework:** Streamlit
-- **Database:** PostgreSQL
+- **Database:** PostgreSQL with persistent volume storage
+- **Containerization:** Docker and Docker Compose
 - **API Integrations:**
   - VirusTotal API
   - Shodan API
@@ -55,7 +107,7 @@ The **Threat Intelligence Platform** is a security analysis tool that provides c
 
 ### Input Validation & Sanitization
 - **IP Address Validation:** Strict format checking and validation
-- **Domain Name Validation:** Comprehensive domain format validation
+- **Domain Name Validation:** Comprehensive domain format validation with protocol flexibility
 - **Input Sanitization:** Protection against injection attacks
 - **Error Handling:** Clear error messages for invalid inputs
 
@@ -70,9 +122,10 @@ The **Threat Intelligence Platform** is a security analysis tool that provides c
 
 ### Data Protection
 - **Environment Variables:** Secure storage of API keys and credentials
-- **Database Security:** Protected database connections
+- **Database Security:** Protected database connections with persistent storage
 - **Input Sanitization:** Prevention of injection attacks
 - **Error Handling:** Comprehensive error logging and handling
+- **JSON Serialization:** Safe handling of datetime objects in database storage
 
 ### API Security
 - **API Key Management:** Secure storage in environment variables
@@ -141,9 +194,10 @@ http://localhost:8501
 ### Features
 
 #### 1. Dashboard
-- View overall statistics about tracked IP addresses
-- Monitor threat levels and malicious IP counts
+- View overall statistics about tracked IP addresses and domains
+- Monitor threat levels and malicious counts
 - Track average threat scores
+- Real-time updates of analysis data
 
 #### 2. IP Lookup
 - Enter an IP address for detailed analysis
@@ -151,16 +205,36 @@ http://localhost:8501
 - Get comprehensive threat scoring
 - Access historical data and timestamps
 - Input validation and rate limiting
+- Persistent data storage
 
 #### 3. Domain Analysis
-- Enter a domain (with protocol) for comprehensive analysis
+- Enter a domain with flexible input (e.g., `example.com` or `https://example.com`)
 - View SSL/TLS certificate information
 - Check DNS records and configurations
 - Access WHOIS registration details
 - Analyze security headers
 - Get VirusTotal reputation score
-- View overall security assessment
+- View overall security assessment with threat scoring
 - Input validation and rate limiting
+- Persistent data storage
+
+#### 4. Historical Analysis
+- **Date Range Selection:** Choose specific time periods for analysis
+- **Comprehensive Statistics:**
+  - Total IPs analyzed
+  - Total domains analyzed
+  - Malicious IPs count
+  - Malicious domains count
+- **Trend Analysis:** View threat score trends over time
+- **Top Malicious Lists:** See most threatening IPs and domains
+- **Attack Patterns:** Identify common vulnerabilities and attack patterns
+- **Domain Trends:** Track domain threat score trends
+
+#### 5. Database Management
+- **Reset Database:** Complete data reset with safety confirmations
+- **Two-Step Confirmation:** Prevents accidental data loss
+- **Comprehensive Clearing:** Removes all data from all tables
+- **Safety Warnings:** Clear warnings about data loss
 
 ### Using the AI/ML Model
 
@@ -268,6 +342,20 @@ analysis = aggregator.get_ip_analysis("8.8.8.8")
 print(f"Analysis with AI prediction: {analysis}")
 ```
 
+## Data Persistence
+
+### How It Works
+- **Persistent Volume:** PostgreSQL data is stored in a Docker volume
+- **Smart Initialization:** Database only creates tables if they don't exist
+- **No Data Loss:** Data survives container restarts and rebuilds
+- **Automatic Recovery:** Data is preserved across system reboots
+
+### Database Reset
+- **Reset Button:** Available in the sidebar under "Database Management"
+- **Safety Confirmation:** Two-step process prevents accidental resets
+- **Complete Clearing:** Removes all data from all tables
+- **Immediate Effect:** Reset takes effect immediately
+
 ## Monitoring and Logs
 - Application logs are available in the Docker containers
 - Database logs are accessible through PostgreSQL
@@ -295,7 +383,7 @@ print(f"Analysis with AI prediction: {analysis}")
    - Review security logs
 
 4. **Domain Analysis Issues**
-   - Ensure domain includes protocol (http:// or https://)
+   - Ensure domain format is valid (e.g., `example.com` or `https://example.com`)
    - Check network connectivity for DNS queries
    - Verify SSL certificate access
    - Check WHOIS service availability
@@ -306,6 +394,23 @@ print(f"Analysis with AI prediction: {analysis}")
    - Verify time window settings
    - Review API quotas
    - Check security logs
+
+6. **Data Persistence Issues**
+   - Verify Docker volume is properly configured
+   - Check database initialization logs
+   - Ensure no manual table dropping occurs
+   - Review database connection parameters
+
+## Recent Updates
+
+### Version 2.0 - Major Improvements
+- **Data Persistence:** Fixed database initialization to preserve data across restarts
+- **Domain Tracking:** Enhanced domain analysis with proper database storage
+- **Reset Functionality:** Added comprehensive database reset feature
+- **Enhanced Input:** Improved domain input flexibility
+- **Historical Analysis:** Added domain statistics and enhanced metrics
+- **JSON Serialization:** Fixed datetime serialization issues in domain storage
+- **Better UX:** Improved user experience with flexible domain input
 
 ## Support
 For issues and feature requests, please open an issue in the GitHub repository.
