@@ -651,6 +651,96 @@ class ThreatAnalyzer:
                 'percentage': round((item.count / total_domains * 100) if total_domains > 0 else 0, 2)
             } for item in domain_score_distribution]
             
+            # Get geographic distribution of threats (from Shodan raw data)
+            geographic_distribution = []
+            country_stats = {}
+            
+            # Query IPs with Shodan data and extract geographic info from raw_data
+            shodan_ips = db.query(
+                IPAddress.id,
+                IPAddress.ip_address,
+                IPAddress.overall_threat_score,
+                IPAddress.is_malicious,
+                ShodanData.raw_data
+            ).join(
+                ShodanData,
+                IPAddress.id == ShodanData.ip_address_id
+            ).filter(
+                and_(
+                    IPAddress.last_updated.between(start_datetime, end_datetime),
+                    ShodanData.raw_data.isnot(None)
+                )
+            ).all()
+            
+            # Process geographic data from raw Shodan data
+            for ip in shodan_ips:
+                if ip.raw_data and isinstance(ip.raw_data, dict):
+                    country_code = ip.raw_data.get('country_code', 'Unknown')
+                    city = ip.raw_data.get('city', 'Unknown')
+                    
+                    # Update geographic distribution
+                    geo_key = f"{country_code}_{city}"
+                    if geo_key not in [g['key'] for g in geographic_distribution]:
+                        geographic_distribution.append({
+                            'key': geo_key,
+                            'country_code': country_code,
+                            'city': city,
+                            'count': 1,
+                            'avg_threat_score': ip.overall_threat_score,
+                            'total_threat_score': ip.overall_threat_score
+                        })
+                    else:
+                        for geo in geographic_distribution:
+                            if geo['key'] == geo_key:
+                                geo['count'] += 1
+                                geo['total_threat_score'] += ip.overall_threat_score
+                                geo['avg_threat_score'] = geo['total_threat_score'] / geo['count']
+                                break
+                    
+                    # Update country statistics
+                    if country_code not in country_stats:
+                        country_stats[country_code] = {
+                            'total_ips': 0,
+                            'malicious_ips': 0,
+                            'total_threat_score': 0,
+                            'max_threat_score': 0
+                        }
+                    
+                    country_stats[country_code]['total_ips'] += 1
+                    country_stats[country_code]['total_threat_score'] += ip.overall_threat_score
+                    country_stats[country_code]['max_threat_score'] = max(
+                        country_stats[country_code]['max_threat_score'], 
+                        ip.overall_threat_score
+                    )
+                    if ip.is_malicious:
+                        country_stats[country_code]['malicious_ips'] += 1
+            
+            # Convert to final format
+            geographic_data = [{
+                'country_code': item['country_code'],
+                'city': item['city'],
+                'count': item['count'],
+                'avg_threat_score': round(item['avg_threat_score'], 2),
+                'percentage': round((item['count'] / total_ips * 100) if total_ips > 0 else 0, 2)
+            } for item in geographic_distribution]
+            
+            country_statistics = [{
+                'country_code': country_code,
+                'total_ips': stats['total_ips'],
+                'malicious_ips': stats['malicious_ips'],
+                'malicious_percentage': round((stats['malicious_ips'] / stats['total_ips'] * 100) if stats['total_ips'] > 0 else 0, 2),
+                'avg_threat_score': round(stats['total_threat_score'] / stats['total_ips'], 2) if stats['total_ips'] > 0 else 0.0,
+                'max_threat_score': stats['max_threat_score']
+            } for country_code, stats in country_stats.items()]
+            
+            # Sort by count for geographic data and by total_ips for country stats
+            geographic_data.sort(key=lambda x: x['count'], reverse=True)
+            country_statistics.sort(key=lambda x: x['total_ips'], reverse=True)
+            
+            # Limit results
+            geographic_data = geographic_data[:10]
+            country_statistics = country_statistics[:5]
+            
             # Analyze attack patterns
             patterns = []
             
@@ -723,7 +813,9 @@ class ThreatAnalyzer:
                 'malicious_ips_count': malicious_ip_count,
                 'malicious_domains_count': malicious_domain_count,
                 'ip_score_distribution': ip_score_distribution_data,
-                'domain_score_distribution': domain_score_distribution_data
+                'domain_score_distribution': domain_score_distribution_data,
+                'geographic_distribution': geographic_data,
+                'country_statistics': country_statistics
             }
             
         except Exception as e:
