@@ -645,7 +645,96 @@ def main():
                     
         except Exception as e:
             st.error(f"Error loading historical analysis: {str(e)}")
-            st.error("Please try adjusting the date range or contact support if the issue persists")
+            st.info("Please try adjusting the date range or contact support if the issue persists")
+        
+        # Display geographic analysis
+        st.subheader("Geographic Analysis")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Geographic Distribution of Threats**")
+            if historical_data.get('geographic_distribution'):
+                geo_df = pd.DataFrame(historical_data['geographic_distribution'])
+                if not geo_df.empty:
+                    # Create bar chart for geographic distribution
+                    fig = px.bar(
+                        geo_df,
+                        x='country_code',
+                        y='count',
+                        title='Threat Distribution by Country',
+                        labels={'country_code': 'Country Code', 'count': 'Number of IPs'},
+                        color='avg_threat_score',
+                        color_continuous_scale='reds'
+                    )
+                    st.plotly_chart(fig)
+                    
+                    # Display table with geographic details
+                    st.write("**Detailed Geographic Breakdown:**")
+                    geo_df['percentage'] = geo_df['percentage'].astype(str) + '%'
+                    geo_df['avg_threat_score'] = geo_df['avg_threat_score'].round(2)
+                    st.dataframe(
+                        geo_df,
+                        column_config={
+                            "country_code": "Country",
+                            "city": "City",
+                            "count": "Count",
+                            "avg_threat_score": "Avg Threat Score",
+                            "percentage": "Percentage"
+                        },
+                        use_container_width=True
+                    )
+                else:
+                    st.info("No geographic distribution data available")
+            else:
+                st.info("No geographic distribution data available")
+        
+        with col2:
+            st.write("**Country-Level Threat Statistics**")
+            if historical_data.get('country_statistics'):
+                country_df = pd.DataFrame(historical_data['country_statistics'])
+                if not country_df.empty:
+                    # Create metrics for top countries
+                    for _, country in country_df.head(3).iterrows():
+                        col_a, col_b, col_c = st.columns(3)
+                        with col_a:
+                            st.metric(
+                                f"🇺🇸 {country['country_code']}",
+                                f"{country['total_ips']} IPs",
+                                f"{country['malicious_ips']} malicious"
+                            )
+                        with col_b:
+                            st.metric(
+                                "Malicious %",
+                                f"{country['malicious_percentage']}%"
+                            )
+                        with col_c:
+                            st.metric(
+                                "Avg Threat Score",
+                                f"{country['avg_threat_score']:.1f}"
+                            )
+                    
+                    # Display detailed country statistics table
+                    st.write("**Detailed Country Statistics:**")
+                    country_df['malicious_percentage'] = country_df['malicious_percentage'].astype(str) + '%'
+                    country_df['avg_threat_score'] = country_df['avg_threat_score'].round(2)
+                    country_df['max_threat_score'] = country_df['max_threat_score'].round(2)
+                    st.dataframe(
+                        country_df,
+                        column_config={
+                            "country_code": "Country",
+                            "total_ips": "Total IPs",
+                            "malicious_ips": "Malicious IPs",
+                            "malicious_percentage": "Malicious %",
+                            "avg_threat_score": "Avg Threat Score",
+                            "max_threat_score": "Max Threat Score"
+                        },
+                        use_container_width=True
+                    )
+                else:
+                    st.info("No country statistics data available")
+            else:
+                st.info("No country statistics data available")
 
     elif page == "IP Lookup":
         st.header("IP Address Lookup")
