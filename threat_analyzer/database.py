@@ -137,11 +137,12 @@ def get_db():
     
     try:
         DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-        engine = create_engine(DATABASE_URL)
+        engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=300)
         
         # Test the connection using SQLAlchemy's text()
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
+            conn.commit()  # Ensure clean transaction state
             
         # Check if tables exist, create them only if they don't
         inspector = inspect(engine)
