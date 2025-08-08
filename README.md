@@ -34,6 +34,14 @@ The **Threat Intelligence Platform** is a comprehensive security analysis tool t
 - **Date Range Filtering:** Analyze data for specific time periods
 - **Domain Trends:** Track domain threat score trends
 - **Top Malicious Lists:** View most threatening IPs and domains
+- **Threat Score Distribution:** Visualize threat score ranges and percentages
+- **Geographic Analysis:** 
+  - Geographic distribution of threats by country
+  - Country-level threat statistics
+  - City-level threat analysis
+  - Average threat scores by geographic location
+  - Malicious percentage by country
+  - Interactive charts and detailed breakdowns
 
 ### Database Management
 - **Reset Functionality:** Complete database reset with confirmation
@@ -52,8 +60,24 @@ The **Threat Intelligence Platform** is a comprehensive security analysis tool t
 - **Real-time Analysis:** Immediate threat assessment
 - **Detailed Reports:** Comprehensive threat intelligence data
 - **Historical Insights:** Trend analysis and pattern recognition
+- **Geographic Insights:** Threat distribution by location
 
 ## Recent Improvements
+
+### Geographic Analysis (New Feature)
+- **Geographic Distribution:** Visualize threats by country and city
+- **Country Statistics:** Track threat levels by geographic location
+- **Interactive Charts:** Bar charts showing threat distribution
+- **Detailed Breakdowns:** Tables with percentages and averages
+- **Data Sources:** Geographic data extracted from Shodan API responses
+- **Real-time Updates:** Geographic analysis updates with new data
+
+### Threat Score Distribution (New Feature)
+- **Score Ranges:** Categorize threats into Low, Medium-Low, Medium, Medium-High, High, and Critical
+- **Visual Charts:** Bar charts showing distribution of threat scores
+- **Percentage Analysis:** Calculate and display percentages for each score range
+- **Detailed Tables:** Comprehensive breakdowns with counts and percentages
+- **IP and Domain Analysis:** Separate analysis for IPs and domains
 
 ### Data Persistence (Fixed)
 - **Issue Resolved:** Data was being wiped on container restarts
@@ -229,6 +253,18 @@ http://localhost:8501
 - **Top Malicious Lists:** See most threatening IPs and domains
 - **Attack Patterns:** Identify common vulnerabilities and attack patterns
 - **Domain Trends:** Track domain threat score trends
+- **Threat Score Distribution:**
+  - Visual breakdown of threat scores by range
+  - Percentage analysis for each score category
+  - Separate analysis for IPs and domains
+  - Interactive charts and detailed tables
+- **Geographic Analysis:**
+  - Geographic distribution of threats by country
+  - Country-level threat statistics with averages
+  - City-level threat analysis
+  - Malicious percentage by geographic location
+  - Interactive bar charts and detailed breakdowns
+  - Real-time geographic threat mapping
 
 #### 5. Database Management
 - **Reset Database:** Complete data reset with safety confirmations
@@ -401,7 +437,22 @@ print(f"Analysis with AI prediction: {analysis}")
    - Ensure no manual table dropping occurs
    - Review database connection parameters
 
+7. **Geographic Analysis Issues**
+   - Verify Shodan API key is valid and has sufficient quota
+   - Check if geographic data is available in Shodan responses
+   - Review API rate limiting for Shodan calls
+   - Ensure proper JSON parsing of geographic data
+
 ## Recent Updates
+
+### Version 2.1 - Geographic Analysis & Enhanced Visualizations
+- **Geographic Analysis:** Added comprehensive geographic threat distribution analysis
+- **Threat Score Distribution:** New visualization of threat scores by ranges
+- **Enhanced Charts:** Interactive bar charts for geographic and score analysis
+- **Detailed Breakdowns:** Comprehensive tables with percentages and statistics
+- **Country Statistics:** Track threat levels by geographic location
+- **City-Level Analysis:** Detailed threat analysis by city
+- **Real-time Mapping:** Geographic threat mapping with live data
 
 ### Version 2.0 - Major Improvements
 - **Data Persistence:** Fixed database initialization to preserve data across restarts
