@@ -67,9 +67,9 @@ def is_valid_domain(domain_str):
         
         # If it already has a scheme, validate as URL
         if domain_str.startswith(('http://', 'https://')):
-            from urllib.parse import urlparse
-            result = urlparse(domain_str)
-            return all([result.scheme, result.netloc])
+        from urllib.parse import urlparse
+        result = urlparse(domain_str)
+        return all([result.scheme, result.netloc])
         
         # Otherwise, validate as a domain name
         import re
@@ -439,31 +439,31 @@ def main():
                 with col1:
                     st.metric(
                         "Total IPs Analyzed", 
-                        historical_data.get('total_ips_analyzed', 0)
+                        historical_data.get('total_ips_analyzed', 0) if historical_data else 0
                     )
                 
                 with col2:
                     st.metric(
                         "Total Domains Analyzed", 
-                        historical_data.get('total_domains_analyzed', 0)
+                        historical_data.get('total_domains_analyzed', 0) if historical_data else 0
                     )
                 
                 with col3:
                     st.metric(
                         "Malicious IPs", 
-                        historical_data.get('malicious_ips_count', 0)
+                        historical_data.get('malicious_ips_count', 0) if historical_data else 0
                     )
                 
                 with col4:
                     st.metric(
                         "Malicious Domains", 
-                        historical_data.get('malicious_domains_count', 0)
+                        historical_data.get('malicious_domains_count', 0) if historical_data else 0
                     )
                 
                 # Display trends
                 st.subheader("Threat Score Trends")
-                if historical_data['trends']:
-                    trend_df = pd.DataFrame(historical_data['trends'])
+                if historical_data and historical_data.get('trends'):
+                    trend_df = pd.DataFrame(historical_data.get('trends', []))
                     fig = px.line(
                         trend_df,
                         x='date',
@@ -484,8 +484,8 @@ def main():
                 
                 # Display top malicious IPs
                 st.subheader("Top Malicious IPs")
-                if historical_data['top_malicious_ips']:
-                    malicious_ips = pd.DataFrame(historical_data['top_malicious_ips'])
+                if historical_data and historical_data.get('top_malicious_ips'):
+                    malicious_ips = pd.DataFrame(historical_data.get('top_malicious_ips', []))
                     # Format the columns for better display
                     malicious_ips['threat_score'] = malicious_ips['threat_score'].round(2)
                     malicious_ips['last_seen'] = pd.to_datetime(malicious_ips['last_seen']).dt.strftime('%Y-%m-%d %H:%M:%S')
@@ -504,7 +504,7 @@ def main():
                 
                 # Display common attack patterns
                 st.subheader("Common Attack Patterns")
-                patterns = historical_data.get('attack_patterns', [])
+                patterns = historical_data.get('attack_patterns', []) if historical_data else []
                 if patterns:
                     for pattern in patterns:
                         st.write(f"- {pattern['description']} (Confidence: {pattern['confidence']}%)")
@@ -516,8 +516,8 @@ def main():
                 
                 # Display top malicious domains
                 st.write("**Top Malicious Domains**")
-                if historical_data.get('top_malicious_domains'):
-                    malicious_domains = pd.DataFrame(historical_data['top_malicious_domains'])
+                if historical_data and historical_data.get('top_malicious_domains'):
+                    malicious_domains = pd.DataFrame(historical_data.get('top_malicious_domains', []))
                     # Format the columns for better display
                     malicious_domains['threat_score'] = malicious_domains['threat_score'].round(2)
                     malicious_domains['last_updated'] = pd.to_datetime(malicious_domains['last_updated']).dt.strftime('%Y-%m-%d %H:%M:%S')
@@ -535,8 +535,8 @@ def main():
                 
                 # Display domain trends
                 st.write("**Domain Threat Score Trends**")
-                if historical_data.get('domain_trends'):
-                    domain_trend_df = pd.DataFrame(historical_data['domain_trends'])
+                if historical_data and historical_data.get('domain_trends'):
+                    domain_trend_df = pd.DataFrame(historical_data.get('domain_trends', []))
                     if not domain_trend_df.empty:
                         # Ensure date column is datetime
                         domain_trend_df['date'] = pd.to_datetime(domain_trend_df['date'])
@@ -577,8 +577,8 @@ def main():
                 
                 with col1:
                     st.write("**IP Threat Score Distribution**")
-                    if historical_data.get('ip_score_distribution'):
-                        ip_dist_df = pd.DataFrame(historical_data['ip_score_distribution'])
+                    if historical_data and historical_data.get('ip_score_distribution'):
+                        ip_dist_df = pd.DataFrame(historical_data.get('ip_score_distribution', []))
                         if not ip_dist_df.empty:
                             # Create bar chart for IP score distribution
                             fig = px.bar(
@@ -611,8 +611,8 @@ def main():
                 
                 with col2:
                     st.write("**Domain Threat Score Distribution**")
-                    if historical_data.get('domain_score_distribution'):
-                        domain_dist_df = pd.DataFrame(historical_data['domain_score_distribution'])
+                    if historical_data and historical_data.get('domain_score_distribution'):
+                        domain_dist_df = pd.DataFrame(historical_data.get('domain_score_distribution', []))
                         if not domain_dist_df.empty:
                             # Create bar chart for domain score distribution
                             fig = px.bar(
@@ -654,8 +654,8 @@ def main():
         
         with col1:
             st.write("**Geographic Distribution of Threats**")
-            if historical_data.get('geographic_distribution'):
-                geo_df = pd.DataFrame(historical_data['geographic_distribution'])
+            if historical_data and historical_data.get('geographic_distribution'):
+                geo_df = pd.DataFrame(historical_data.get('geographic_distribution', []))
                 if not geo_df.empty:
                     # Create bar chart for geographic distribution
                     fig = px.bar(
@@ -691,8 +691,8 @@ def main():
         
         with col2:
             st.write("**Country-Level Threat Statistics**")
-            if historical_data.get('country_statistics'):
-                country_df = pd.DataFrame(historical_data['country_statistics'])
+            if historical_data and historical_data.get('country_statistics'):
+                country_df = pd.DataFrame(historical_data.get('country_statistics', []))
                 if not country_df.empty:
                     # Create metrics for top countries
                     for _, country in country_df.head(3).iterrows():
@@ -735,6 +735,253 @@ def main():
                     st.info("No country statistics data available")
             else:
                 st.info("No country statistics data available")
+        
+        # Vulnerability Analysis Section
+        st.subheader("Vulnerability Analysis")
+        
+        if historical_data and historical_data.get('vulnerability_analysis'):
+            vuln_analysis = historical_data['vulnerability_analysis']
+            
+            # Create tabs for different vulnerability analysis sections
+            vuln_tab1, vuln_tab2, vuln_tab3, vuln_tab4, vuln_tab5 = st.tabs([
+                "Severity Distribution", "CVE Correlations", "Vulnerability Trends", 
+                "Vulnerability Statistics", "Zero-Day Analysis"
+            ])
+            
+            with vuln_tab1:
+                st.write("**Vulnerability Severity Distribution**")
+                if vuln_analysis.get('severity_distribution'):
+                    severity_data = vuln_analysis['severity_distribution']
+                    
+                    # Create severity distribution chart
+                    severity_df = pd.DataFrame([
+                        {
+                            'Severity': severity,
+                            'Count': data.get('count', 0),
+                            'Unique Vulnerabilities': len(data.get('vulnerabilities', []))
+                        }
+                        for severity, data in severity_data.items()
+                        if data.get('count', 0) > 0
+                    ])
+                    
+                    if not severity_df.empty:
+                        # Create pie chart for severity distribution
+                        fig = px.pie(
+                            severity_df,
+                            values='Count',
+                            names='Severity',
+                            title='Vulnerability Severity Distribution',
+                            color_discrete_sequence=px.colors.qualitative.Set3
+                        )
+                        st.plotly_chart(fig)
+                        
+                        # Display severity statistics
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            total_vulns = severity_data.get('total_vulnerabilities', 0)
+                            st.metric("Total Vulnerabilities", total_vulns)
+                        with col2:
+                            most_common = severity_data.get('most_common_severity', 'None')
+                            st.metric("Most Common Severity", most_common)
+                        with col3:
+                            unique_vulns = sum(len(data.get('vulnerabilities', [])) for data in severity_data.values())
+                            st.metric("Unique Vulnerabilities", unique_vulns)
+                        
+                        # Display detailed breakdown
+                        st.write("**Detailed Severity Breakdown:**")
+                        for severity, data in severity_data.items():
+                            if data.get('count', 0) > 0:
+                                st.write(f"**{severity}** ({data.get('count', 0)} instances)")
+                                vulnerabilities = data.get('vulnerabilities', [])
+                                if vulnerabilities:
+                                    st.write(f"Vulnerabilities: {', '.join(vulnerabilities[:5])}")
+                                    if len(vulnerabilities) > 5:
+                                        st.write(f"... and {len(vulnerabilities) - 5} more")
+                                st.write("---")
+                    else:
+                        st.info("No vulnerability severity data available")
+                else:
+                    st.info("No vulnerability severity data available")
+            
+            with vuln_tab2:
+                st.write("**CVE Correlations and Attack Patterns**")
+                if vuln_analysis.get('cve_correlations'):
+                    cve_data = vuln_analysis['cve_correlations']
+                    
+                    # Display CVE co-occurrence data
+                    if cve_data.get('cve_cooccurrence'):
+                        st.write("**Most Common CVE Pairs:**")
+                        cve_df = pd.DataFrame(cve_data['cve_cooccurrence'])
+                        if not cve_df.empty:
+                            st.dataframe(
+                                cve_df,
+                                column_config={
+                                    "cve_pair": "CVE Pair",
+                                    "count": "Co-occurrence Count"
+                                },
+                                use_container_width=True
+                            )
+                    else:
+                        st.info("No CVE co-occurrence data available")
+                    
+                    # Display attack patterns
+                    if cve_data.get('attack_patterns'):
+                        st.write("**Identified Attack Patterns:**")
+                        for pattern in cve_data['attack_patterns']:
+                            st.write(f"• **{pattern.get('description', 'Unknown')}** (Confidence: {pattern.get('cooccurrence_count', 0)} occurrences)")
+                    else:
+                        st.info("No attack patterns identified")
+                    
+                    # Display statistics
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("Total Unique CVEs", cve_data.get('total_unique_cves', 0))
+                    with col2:
+                        st.metric("IPs with Vulnerabilities", cve_data.get('ips_with_vulnerabilities', 0))
+                else:
+                    st.info("No CVE correlation data available")
+            
+            with vuln_tab3:
+                st.write("**Vulnerability Trends Over Time**")
+                if vuln_analysis.get('vulnerability_trends'):
+                    trends_data = vuln_analysis['vulnerability_trends']
+                    
+                    if trends_data.get('daily_trends'):
+                        trends_df = pd.DataFrame(trends_data['daily_trends'])
+                        if not trends_df.empty:
+                            # Create line chart for vulnerability trends
+                            fig = px.line(
+                                trends_df,
+                                x='date',
+                                y='total_vulnerabilities',
+                                title='Daily Vulnerability Counts',
+                                labels={'total_vulnerabilities': 'Total Vulnerabilities', 'date': 'Date'}
+                            )
+                            st.plotly_chart(fig)
+                            
+                            # Display trend statistics
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("Trend Direction", trends_data.get('trend_direction', 'Unknown'))
+                            with col2:
+                                st.metric("Days Analyzed", trends_data.get('total_days_analyzed', 0))
+                            with col3:
+                                peak_day = trends_data.get('peak_vulnerability_day')
+                                if peak_day:
+                                    st.metric("Peak Day", f"{peak_day['date']} ({peak_day['total_vulnerabilities']} vulns)")
+                                else:
+                                    st.metric("Peak Day", "N/A")
+                            
+                            # Display detailed trends table
+                            st.write("**Detailed Trend Data:**")
+                            trends_df['avg_vulns_per_ip'] = trends_df['avg_vulns_per_ip'].round(2)
+                            st.dataframe(
+                                trends_df,
+                                column_config={
+                                    "date": "Date",
+                                    "vulnerability_records": "Records",
+                                    "total_vulnerabilities": "Total Vulnerabilities",
+                                    "avg_vulns_per_ip": "Avg per IP"
+                                },
+                                use_container_width=True
+                            )
+                        else:
+                            st.info("No vulnerability trend data available")
+                    else:
+                        st.info("No vulnerability trend data available")
+                else:
+                    st.info("No vulnerability trend data available")
+            
+            with vuln_tab4:
+                st.write("**Vulnerability Statistics**")
+                if vuln_analysis.get('vulnerability_statistics'):
+                    stats_data = vuln_analysis['vulnerability_statistics']
+                    
+                    # Display key metrics
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("IPs with Vulnerabilities", stats_data.get('total_ips_with_vulnerabilities', 0))
+                    with col2:
+                        st.metric("Total Vulnerabilities", stats_data.get('total_vulnerabilities_found', 0))
+                    with col3:
+                        st.metric("Avg per IP", f"{stats_data.get('average_vulnerabilities_per_ip', 0):.2f}")
+                    
+                    # Display most vulnerable IPs
+                    if stats_data.get('most_vulnerable_ips'):
+                        st.write("**Most Vulnerable IPs:**")
+                        vuln_ips_df = pd.DataFrame(stats_data['most_vulnerable_ips'])
+                        st.dataframe(
+                            vuln_ips_df,
+                            column_config={
+                                "ip_address": "IP Address",
+                                "vulnerability_count": "Vulnerability Count",
+                                "threat_score": "Threat Score"
+                            },
+                            use_container_width=True
+                        )
+                    
+                    # Display port vulnerability analysis
+                    if stats_data.get('port_vulnerability_analysis'):
+                        st.write("**Vulnerabilities by Port:**")
+                        port_vuln_df = pd.DataFrame(stats_data['port_vulnerability_analysis'])
+                        if not port_vuln_df.empty:
+                            # Create bar chart for port vulnerabilities
+                            fig = px.bar(
+                                port_vuln_df.head(10),
+                                x='port',
+                                y='ip_count',
+                                title='Most Vulnerable Ports',
+                                labels={'port': 'Port', 'ip_count': 'Number of IPs'}
+                            )
+                            st.plotly_chart(fig)
+                            
+                            # Display detailed port analysis
+                            st.write("**Detailed Port Analysis:**")
+                            port_vuln_df['unique_vulnerabilities'] = port_vuln_df['unique_vulnerabilities'].apply(lambda x: ', '.join(x[:3]) + ('...' if len(x) > 3 else ''))
+                            st.dataframe(
+                                port_vuln_df,
+                                column_config={
+                                    "port": "Port",
+                                    "ip_count": "IP Count",
+                                    "unique_vulnerabilities": "Vulnerabilities"
+                                },
+                                use_container_width=True
+                            )
+                else:
+                    st.info("No vulnerability statistics available")
+            
+            with vuln_tab5:
+                st.write("**Zero-Day Vulnerability Analysis**")
+                if vuln_analysis.get('zero_day_analysis'):
+                    zero_day_data = vuln_analysis['zero_day_analysis']
+                    
+                    # Display potential zero-day vulnerabilities
+                    if zero_day_data.get('potential_zero_days'):
+                        st.write("**Potential Zero-Day Vulnerabilities:**")
+                        zero_day_df = pd.DataFrame(zero_day_data['potential_zero_days'])
+                        st.dataframe(
+                            zero_day_df,
+                            column_config={
+                                "vulnerability": "Vulnerability",
+                                "count": "Occurrence Count"
+                            },
+                            use_container_width=True
+                        )
+                    
+                    # Display statistics
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("Unknown Vulnerabilities", zero_day_data.get('total_unknown_vulnerabilities', 0))
+                    with col2:
+                        st.metric("Potential Zero-Days", len(zero_day_data.get('potential_zero_days', [])))
+                    
+                    # Display analysis note
+                    if zero_day_data.get('analysis_note'):
+                        st.info(zero_day_data['analysis_note'])
+                else:
+                    st.info("No zero-day analysis data available")
+        else:
+            st.info("No vulnerability analysis data available")
 
     elif page == "IP Lookup":
         st.header("IP Address Lookup")
