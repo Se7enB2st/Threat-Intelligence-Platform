@@ -235,6 +235,320 @@ class ThreatAnalyzer:
         } for vuln, count in sorted(vulns_count.items(), key=lambda x: x[1], reverse=True)]
 
     @staticmethod
+    def analyze_vulnerability_severity(db: Session) -> Dict:
+        """
+        Analyze vulnerability severity distribution and categorize vulnerabilities
+        """
+        try:
+            # Ensure clean transaction state
+            db.rollback()
+            
+            severity_categories = {
+                'Critical': ['CVE-2021-44228', 'CVE-2021-45046', 'CVE-2021-45105'],  # Log4j variants
+                'High': ['CVE-2021-34527', 'CVE-2021-34484', 'CVE-2021-34523'],      # ProxyShell
+                'Medium': ['CVE-2021-26855', 'CVE-2021-26857', 'CVE-2021-26858'],    # Exchange
+                'Low': ['CVE-2021-26867', 'CVE-2021-26868', 'CVE-2021-26869']        # Exchange
+            }
+            
+            # Default severity mapping for common vulnerabilities
+            default_severity = {
+                'CVE-2021-44228': 'Critical',
+                'CVE-2021-45046': 'Critical', 
+                'CVE-2021-45105': 'Critical',
+                'CVE-2021-34527': 'High',
+                'CVE-2021-34484': 'High',
+                'CVE-2021-34523': 'High',
+                'CVE-2021-26855': 'Medium',
+                'CVE-2021-26857': 'Medium',
+                'CVE-2021-26858': 'Medium',
+                'CVE-2021-26867': 'Low',
+                'CVE-2021-26868': 'Low',
+                'CVE-2021-26869': 'Low'
+            }
+            
+            severity_stats = {
+                'Critical': {'count': 0, 'vulnerabilities': []},
+                'High': {'count': 0, 'vulnerabilities': []},
+                'Medium': {'count': 0, 'vulnerabilities': []},
+                'Low': {'count': 0, 'vulnerabilities': []},
+                'Unknown': {'count': 0, 'vulnerabilities': []}
+            }
+            
+            shodan_records = db.query(ShodanData).all()
+            
+            for record in shodan_records:
+                if record.vulns:
+                    vulns = json.loads(record.vulns)
+                    for vuln in vulns:
+                        severity = default_severity.get(vuln, 'Unknown')
+                        severity_stats[severity]['count'] += 1
+                        if vuln not in severity_stats[severity]['vulnerabilities']:
+                            severity_stats[severity]['vulnerabilities'].append(vuln)
+            
+            return {
+                'severity_distribution': severity_stats,
+                'total_vulnerabilities': sum(stats['count'] for stats in severity_stats.values()),
+                'most_common_severity': max(severity_stats.items(), key=lambda x: x[1]['count'])[0] if any(stats['count'] > 0 for stats in severity_stats.values()) else 'None'
+            }
+        except Exception as e:
+            logger.error(f"Error in analyze_vulnerability_severity: {str(e)}")
+            return {
+                'severity_distribution': {
+                    'Critical': {'count': 0, 'vulnerabilities': []},
+                    'High': {'count': 0, 'vulnerabilities': []},
+                    'Medium': {'count': 0, 'vulnerabilities': []},
+                    'Low': {'count': 0, 'vulnerabilities': []},
+                    'Unknown': {'count': 0, 'vulnerabilities': []}
+                },
+                'total_vulnerabilities': 0,
+                'most_common_severity': 'None'
+            }
+
+    @staticmethod
+    def analyze_cve_correlations(db: Session) -> Dict:
+        """
+        Analyze correlations between different CVEs and identify common attack patterns
+        """
+        try:
+            # Ensure clean transaction state
+            db.rollback()
+            
+            cve_cooccurrence = {}
+            ip_vulnerabilities = {}
+            
+            shodan_records = db.query(ShodanData).all()
+            
+            # Build IP to vulnerabilities mapping
+            for record in shodan_records:
+                if record.vulns:
+                    vulns = json.loads(record.vulns)
+                    ip_vulnerabilities[record.ip_address_id] = vulns
+                    
+                    # Build co-occurrence matrix
+                    for i, vuln1 in enumerate(vulns):
+                        for vuln2 in vulns[i+1:]:
+                            pair = tuple(sorted([vuln1, vuln2]))
+                            cve_cooccurrence[pair] = cve_cooccurrence.get(pair, 0) + 1
+            
+            # Find most common CVE pairs
+            common_pairs = sorted(cve_cooccurrence.items(), key=lambda x: x[1], reverse=True)[:10]
+            
+            # Analyze attack patterns
+            attack_patterns = []
+            for (cve1, cve2), count in common_pairs:
+                if count >= 2:  # Only consider patterns that appear multiple times
+                    attack_patterns.append({
+                        'cve_pair': [cve1, cve2],
+                        'cooccurrence_count': count,
+                        'description': f"Common attack pattern: {cve1} + {cve2}"
+                    })
+            
+            return {
+                'cve_cooccurrence': [{
+                    'cve_pair': list(pair),
+                    'count': count
+                } for pair, count in common_pairs],
+                'attack_patterns': attack_patterns,
+                'total_unique_cves': len(set(vuln for vulns in ip_vulnerabilities.values() for vuln in vulns)),
+                'ips_with_vulnerabilities': len(ip_vulnerabilities)
+            }
+        except Exception as e:
+            logger.error(f"Error in analyze_cve_correlations: {str(e)}")
+            return {
+                'cve_cooccurrence': [],
+                'attack_patterns': [],
+                'total_unique_cves': 0,
+                'ips_with_vulnerabilities': 0
+            }
+
+    @staticmethod
+    def analyze_vulnerability_trends(db: Session, days: int = 30) -> Dict:
+        """
+        Analyze vulnerability trends over time
+        """
+        try:
+            # Ensure clean transaction state
+            db.rollback()
+            
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            
+            # Get daily vulnerability counts
+            daily_vulns = db.query(
+                func.date(IPAddress.last_updated).label('date'),
+                func.count(ShodanData.id).label('vuln_records'),
+                func.sum(func.jsonb_array_length(text("shodan_data.vulns::jsonb"))).label('total_vulns')
+            ).join(
+                ShodanData,
+                IPAddress.id == ShodanData.ip_address_id
+            ).filter(
+                and_(
+                    IPAddress.last_updated >= cutoff_date,
+                    ShodanData.vulns.isnot(None)
+                )
+            ).group_by(
+                func.date(IPAddress.last_updated)
+            ).order_by(
+                text('date')
+            ).all()
+            
+            trend_data = [{
+                'date': day.date,
+                'vulnerability_records': day.vuln_records,
+                'total_vulnerabilities': int(day.total_vulns) if day.total_vulns else 0,
+                'avg_vulns_per_ip': round(float(day.total_vulns) / day.vuln_records, 2) if day.vuln_records > 0 else 0
+            } for day in daily_vulns]
+            
+            # Calculate trend direction
+            if len(trend_data) > 1:
+                first_avg = trend_data[0]['avg_vulns_per_ip']
+                last_avg = trend_data[-1]['avg_vulns_per_ip']
+                trend_direction = 'increasing' if last_avg > first_avg else 'decreasing' if last_avg < first_avg else 'stable'
+            else:
+                trend_direction = 'insufficient_data'
+            
+            return {
+                'daily_trends': trend_data,
+                'trend_direction': trend_direction,
+                'total_days_analyzed': len(trend_data),
+                'peak_vulnerability_day': max(trend_data, key=lambda x: x['total_vulnerabilities']) if trend_data else None
+            }
+        except Exception as e:
+            logger.error(f"Error in analyze_vulnerability_trends: {str(e)}")
+            return {
+                'daily_trends': [],
+                'trend_direction': 'insufficient_data',
+                'total_days_analyzed': 0,
+                'peak_vulnerability_day': None
+            }
+
+    @staticmethod
+    def get_vulnerability_statistics(db: Session) -> Dict:
+        """
+        Get comprehensive vulnerability statistics
+        """
+        try:
+            # Ensure clean transaction state
+            db.rollback()
+            
+            # Get basic vulnerability stats
+            total_ips_with_vulns = db.query(func.count(ShodanData.ip_address_id.distinct())).filter(
+                ShodanData.vulns.isnot(None)
+            ).scalar()
+            
+            total_vulns = db.query(
+                func.sum(func.jsonb_array_length(text("shodan_data.vulns::jsonb")))
+            ).filter(
+                ShodanData.vulns.isnot(None)
+            ).scalar()
+            
+            # Get most vulnerable IPs
+            most_vulnerable_ips = db.query(
+                IPAddress.ip_address,
+                func.jsonb_array_length(text("shodan_data.vulns::jsonb")).label('vuln_count'),
+                IPAddress.overall_threat_score
+            ).join(
+                ShodanData,
+                IPAddress.id == ShodanData.ip_address_id
+            ).filter(
+                ShodanData.vulns.isnot(None)
+            ).order_by(
+                desc('vuln_count')
+            ).limit(10).all()
+            
+            # Get vulnerability by port analysis
+            port_vulns = {}
+            shodan_records = db.query(ShodanData).filter(
+                and_(
+                    ShodanData.vulns.isnot(None),
+                    ShodanData.ports.isnot(None)
+                )
+            ).all()
+            
+            for record in shodan_records:
+                if record.ports and record.vulns:
+                    ports = json.loads(record.ports)
+                    vulns = json.loads(record.vulns)
+                    for port in ports:
+                        if port not in port_vulns:
+                            port_vulns[port] = {'count': 0, 'vulnerabilities': set()}
+                        port_vulns[port]['count'] += 1
+                        port_vulns[port]['vulnerabilities'].update(vulns)
+            
+            # Convert sets to lists for JSON serialization
+            port_vulnerability_analysis = [{
+                'port': port,
+                'ip_count': data['count'],
+                'unique_vulnerabilities': list(data['vulnerabilities'])
+            } for port, data in sorted(port_vulns.items(), key=lambda x: x[1]['count'], reverse=True)]
+            
+            return {
+                'total_ips_with_vulnerabilities': total_ips_with_vulns,
+                'total_vulnerabilities_found': int(total_vulns) if total_vulns else 0,
+                'average_vulnerabilities_per_ip': round(float(total_vulns) / total_ips_with_vulns, 2) if total_ips_with_vulns > 0 else 0,
+                'most_vulnerable_ips': [{
+                    'ip_address': ip.ip_address,
+                    'vulnerability_count': ip.vuln_count,
+                    'threat_score': float(ip.overall_threat_score)
+                } for ip in most_vulnerable_ips],
+                'port_vulnerability_analysis': port_vulnerability_analysis[:10]  # Top 10 most vulnerable ports
+            }
+        except Exception as e:
+            logger.error(f"Error in get_vulnerability_statistics: {str(e)}")
+            return {
+                'total_ips_with_vulnerabilities': 0,
+                'total_vulnerabilities_found': 0,
+                'average_vulnerabilities_per_ip': 0,
+                'most_vulnerable_ips': [],
+                'port_vulnerability_analysis': []
+            }
+
+    @staticmethod
+    def analyze_zero_day_vulnerabilities(db: Session) -> Dict:
+        """
+        Analyze potential zero-day vulnerabilities and emerging threats
+        """
+        try:
+            # Ensure clean transaction state
+            db.rollback()
+            
+            # This is a placeholder for zero-day analysis
+            # In a real implementation, this would integrate with threat feeds
+            # and analyze patterns that might indicate zero-day exploits
+            
+            # For now, we'll analyze vulnerabilities that appear frequently
+            # but don't have well-known CVE patterns
+            vuln_patterns = {}
+            shodan_records = db.query(ShodanData).all()
+            
+            for record in shodan_records:
+                if record.vulns:
+                    vulns = json.loads(record.vulns)
+                    for vuln in vulns:
+                        # Check if it's a known CVE pattern
+                        if not vuln.startswith('CVE-'):
+                            vuln_patterns[vuln] = vuln_patterns.get(vuln, 0) + 1
+            
+            # Find potential zero-day candidates (frequent but unknown patterns)
+            potential_zero_days = [
+                {'vulnerability': vuln, 'count': count}
+                for vuln, count in sorted(vuln_patterns.items(), key=lambda x: x[1], reverse=True)
+                if count >= 2  # Only consider if it appears multiple times
+            ][:5]
+            
+            return {
+                'potential_zero_days': potential_zero_days,
+                'total_unknown_vulnerabilities': len(vuln_patterns),
+                'analysis_note': 'This analysis identifies vulnerabilities that do not follow standard CVE patterns and may represent emerging threats.'
+            }
+        except Exception as e:
+            logger.error(f"Error in analyze_zero_day_vulnerabilities: {str(e)}")
+            return {
+                'potential_zero_days': [],
+                'total_unknown_vulnerabilities': 0,
+                'analysis_note': 'Analysis failed due to database error.'
+            }
+
+    @staticmethod
     def get_statistics(db: Session) -> Dict:
         """
         Get overall statistics about the threat intelligence data
@@ -485,22 +799,21 @@ class ThreatAnalyzer:
         Get historical analysis data for a specified date range
         """
         try:
+            # Ensure clean transaction state
+            db.rollback()
             # Convert dates to datetime with time
             start_datetime = datetime.combine(start_date, datetime.min.time())
             end_datetime = datetime.combine(end_date, datetime.max.time())
             
-            # Get trend data
+            # Get trend data - use IPAddress directly instead of ScanHistory
             trends = db.query(
-                func.date(ScanHistory.scan_date).label('date'),
+                func.date(IPAddress.last_updated).label('date'),
                 func.avg(IPAddress.overall_threat_score).label('avg_score'),
                 func.count(IPAddress.id).label('ip_count')
-            ).join(
-                IPAddress,
-                ScanHistory.ip_address_id == IPAddress.id
             ).filter(
-                ScanHistory.scan_date.between(start_datetime, end_datetime)
+                IPAddress.last_updated.between(start_datetime, end_datetime)
             ).group_by(
-                func.date(ScanHistory.scan_date)
+                func.date(IPAddress.last_updated)
             ).order_by(
                 text('date')
             ).all()
@@ -511,18 +824,15 @@ class ThreatAnalyzer:
                 'ip_count': trend.ip_count
             } for trend in trends]
             
-            # Get top malicious IPs
+            # Get top malicious IPs - use IPAddress directly
             malicious_ips = db.query(
                 IPAddress.ip_address,
                 IPAddress.overall_threat_score,
-                func.count(ScanHistory.id).label('scan_count'),
-                func.max(ScanHistory.scan_date).label('last_seen')
-            ).join(
-                ScanHistory,
-                IPAddress.id == ScanHistory.ip_address_id
+                func.count(IPAddress.id).label('scan_count'),
+                func.max(IPAddress.last_updated).label('last_seen')
             ).filter(
                 and_(
-                    ScanHistory.scan_date.between(start_datetime, end_datetime),
+                    IPAddress.last_updated.between(start_datetime, end_datetime),
                     IPAddress.is_malicious == True
                 )
             ).group_by(
@@ -802,6 +1112,66 @@ class ThreatAnalyzer:
                             'confidence': min(100, max(0, int(pattern.count / len(activity_patterns) * 100)))
                         })
             
+            # Get vulnerability analysis data with error handling
+            try:
+                vulnerability_severity = ThreatAnalyzer.analyze_vulnerability_severity(db)
+            except Exception as e:
+                logging.error(f"Error in vulnerability_severity: {str(e)}")
+                vulnerability_severity = {
+                    'severity_distribution': {
+                        'Critical': {'count': 0, 'vulnerabilities': []},
+                        'High': {'count': 0, 'vulnerabilities': []},
+                        'Medium': {'count': 0, 'vulnerabilities': []},
+                        'Low': {'count': 0, 'vulnerabilities': []},
+                        'Unknown': {'count': 0, 'vulnerabilities': []}
+                    },
+                    'total_vulnerabilities': 0,
+                    'most_common_severity': 'None'
+                }
+            
+            try:
+                cve_correlations = ThreatAnalyzer.analyze_cve_correlations(db)
+            except Exception as e:
+                logging.error(f"Error in cve_correlations: {str(e)}")
+                cve_correlations = {
+                    'common_cve_pairs': [],
+                    'attack_patterns': [],
+                    'total_correlations': 0
+                }
+            
+            try:
+                vulnerability_trends = ThreatAnalyzer.analyze_vulnerability_trends(db, 30)
+            except Exception as e:
+                logging.error(f"Error in vulnerability_trends: {str(e)}")
+                vulnerability_trends = {
+                    'daily_trends': [],
+                    'trend_direction': 'insufficient_data',
+                    'total_days_analyzed': 0,
+                    'peak_vulnerability_day': None
+                }
+            
+            try:
+                vulnerability_stats = ThreatAnalyzer.get_vulnerability_statistics(db)
+            except Exception as e:
+                logging.error(f"Error in vulnerability_stats: {str(e)}")
+                vulnerability_stats = {
+                    'total_ips_with_vulns': 0,
+                    'total_vulnerabilities': 0,
+                    'avg_vulns_per_ip': 0,
+                    'most_vulnerable_ips': [],
+                    'port_vulnerability_analysis': []
+                }
+            
+            try:
+                zero_day_analysis = ThreatAnalyzer.analyze_zero_day_vulnerabilities(db)
+            except Exception as e:
+                logging.error(f"Error in zero_day_analysis: {str(e)}")
+                zero_day_analysis = {
+                    'potential_zero_days': [],
+                    'non_cve_patterns': [],
+                    'total_candidates': 0
+                }
+            
             return {
                 'trends': trend_data,
                 'top_malicious_ips': malicious_ip_data,
@@ -815,7 +1185,14 @@ class ThreatAnalyzer:
                 'ip_score_distribution': ip_score_distribution_data,
                 'domain_score_distribution': domain_score_distribution_data,
                 'geographic_distribution': geographic_data,
-                'country_statistics': country_statistics
+                'country_statistics': country_statistics,
+                'vulnerability_analysis': {
+                    'severity_distribution': vulnerability_severity,
+                    'cve_correlations': cve_correlations,
+                    'vulnerability_trends': vulnerability_trends,
+                    'vulnerability_statistics': vulnerability_stats,
+                    'zero_day_analysis': zero_day_analysis
+                }
             }
             
         except Exception as e:
