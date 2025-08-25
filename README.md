@@ -42,6 +42,14 @@ The **Threat Intelligence Platform** is a comprehensive security analysis tool t
   - Average threat scores by geographic location
   - Malicious percentage by country
   - Interactive charts and detailed breakdowns
+- **Vulnerability Analysis:**
+  - Vulnerability severity distribution (Critical, High, Medium, Low, Unknown)
+  - CVE correlation analysis and attack patterns
+  - Vulnerability trends over time
+  - Comprehensive vulnerability statistics
+  - Zero-day vulnerability detection
+  - Port-based vulnerability analysis
+  - Most vulnerable IPs identification
 
 ### Database Management
 - **Reset Functionality:** Complete database reset with confirmation
@@ -98,6 +106,24 @@ The **Threat Intelligence Platform** is a comprehensive security analysis tool t
 ### Enhanced Domain Input
 - **Improvement:** Users can now enter domains without requiring `http://` or `https://`
 - **Auto-Normalization:** Automatically adds `https://` if no protocol is specified
+
+### Vulnerability Analysis (New Feature)
+- **Severity Distribution:** Categorize vulnerabilities by severity (Critical, High, Medium, Low, Unknown)
+- **CVE Correlations:** Analyze relationships between different CVEs and identify attack patterns
+- **Vulnerability Trends:** Track vulnerability counts and trends over time
+- **Comprehensive Statistics:** 
+  - Total IPs with vulnerabilities
+  - Average vulnerabilities per IP
+  - Most vulnerable IPs identification
+  - Port-based vulnerability analysis
+- **Zero-Day Detection:** Identify potential zero-day vulnerabilities and emerging threats
+- **Interactive Visualizations:** 
+  - Pie charts for severity distribution
+  - Line charts for vulnerability trends
+  - Bar charts for port vulnerability analysis
+  - Detailed tables with comprehensive breakdowns
+- **Attack Pattern Recognition:** Identify common CVE pairs and attack patterns
+- **Real-time Analysis:** Vulnerability analysis updates with new data
 - **Flexible Validation:** Accepts multiple domain formats
 - **Better UX:** More user-friendly domain input experience
 
